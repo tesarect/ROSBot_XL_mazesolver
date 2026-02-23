@@ -1,0 +1,482 @@
+[
+  {
+    "waypoint": "0",
+    "timestamp": 1771830598.3325176,
+    "data": {
+      "/odometry/filtered": {
+        "position": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "orientation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -0.0,
+          "w": 1.0
+        }
+      },
+      "/rosbot_xl_base_controller/odom": {
+        "position": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "orientation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        }
+      }
+    }
+  },
+  {
+    "waypoint": "1",
+    "timestamp": 1771827867.1791258,
+    "data": {
+      "/odometry/filtered": {
+        "position": {
+          "x": 0.354,
+          "y": -0.0,
+          "z": 0.0
+        },
+        "orientation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -0.3805,
+          "w": 0.9248
+        }
+      },
+      "/rosbot_xl_base_controller/odom": {
+        "position": {
+          "x": 0.354,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "orientation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -0.1773,
+          "w": 0.9842
+        }
+      }
+    }
+  },
+  {
+    "waypoint": "2",
+    "timestamp": 1771827913.6267204,
+    "data": {
+      "/odometry/filtered": {
+        "position": {
+          "x": 0.4752,
+          "y": -0.12,
+          "z": 0.0
+        },
+        "orientation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -0.6988,
+          "w": 0.7153
+        }
+      },
+      "/rosbot_xl_base_controller/odom": {
+        "position": {
+          "x": 0.5138,
+          "y": -0.0595,
+          "z": 0.0
+        },
+        "orientation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -0.3474,
+          "w": 0.9377
+        }
+      }
+    }
+  },
+  {
+    "waypoint": "3",
+    "timestamp": 1771828021.4619267,
+    "data": {
+      "/odometry/filtered": {
+        "position": {
+          "x": 0.5155,
+          "y": -1.3886,
+          "z": 0.0
+        },
+        "orientation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -0.0016,
+          "w": 1.0
+        }
+      },
+      "/rosbot_xl_base_controller/odom": {
+        "position": {
+          "x": 1.5178,
+          "y": -0.8935,
+          "z": 0.0
+        },
+        "orientation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -0.0052,
+          "w": 1.0
+        }
+      }
+    }
+  },
+  {
+    "waypoint": "4",
+    "timestamp": 1771828090.7459548,
+    "data": {
+      "/odometry/filtered": {
+        "position": {
+          "x": 1.0411,
+          "y": -1.3905,
+          "z": 0.0
+        },
+        "orientation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.6992,
+          "w": 0.7149
+        }
+      },
+      "/rosbot_xl_base_controller/odom": {
+        "position": {
+          "x": 2.0433,
+          "y": -0.8989,
+          "z": 0.0
+        },
+        "orientation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.3347,
+          "w": 0.9423
+        }
+      }
+    }
+  },
+  {
+    "waypoint": "5",
+    "timestamp": 1771828148.3766,
+    "data": {
+      "/odometry/filtered": {
+        "position": {
+          "x": 1.0528,
+          "y": -0.8664,
+          "z": 0.0
+        },
+        "orientation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.6992,
+          "w": 0.7149
+        }
+      },
+      "/rosbot_xl_base_controller/odom": {
+        "position": {
+          "x": 2.4501,
+          "y": -0.5682,
+          "z": 0.0
+        },
+        "orientation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.3347,
+          "w": 0.9423
+        }
+      }
+    }
+  },
+  {
+    "waypoint": "6",
+    "timestamp": 1771828446.777559,
+    "data": {
+      "/odometry/filtered": {
+        "position": {
+          "x": 1.3952,
+          "y": -0.8605,
+          "z": 0.0
+        },
+        "orientation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.7057,
+          "w": 0.7085
+        }
+      },
+      "/rosbot_xl_base_controller/odom": {
+        "position": {
+          "x": 2.7923,
+          "y": -0.5794,
+          "z": 0.0
+        },
+        "orientation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.3243,
+          "w": 0.946
+        }
+      }
+    }
+  },
+  {
+    "waypoint": "7",
+    "timestamp": 1771828507.7506738,
+    "data": {
+      "/odometry/filtered": {
+        "position": {
+          "x": 1.3973,
+          "y": -0.3072,
+          "z": 0.0
+        },
+        "orientation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.7057,
+          "w": 0.7085
+        }
+      },
+      "/rosbot_xl_base_controller/odom": {
+        "position": {
+          "x": 3.2293,
+          "y": -0.2399,
+          "z": 0.0
+        },
+        "orientation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.3243,
+          "w": 0.946
+        }
+      }
+    }
+  },
+  {
+    "waypoint": "8",
+    "timestamp": 1771828631.1340194,
+    "data": {
+      "/odometry/filtered": {
+        "position": {
+          "x": 1.9615,
+          "y": -0.3059,
+          "z": 0.0
+        },
+        "orientation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.7113,
+          "w": 0.7029
+        }
+      },
+      "/rosbot_xl_base_controller/odom": {
+        "position": {
+          "x": 3.7927,
+          "y": -0.27,
+          "z": 0.0
+        },
+        "orientation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.3199,
+          "w": 0.9475
+        }
+      }
+    }
+  },
+  {
+    "waypoint": "9",
+    "timestamp": 1771828730.0301113,
+    "data": {
+      "/odometry/filtered": {
+        "position": {
+          "x": 1.9512,
+          "y": 0.5595,
+          "z": 0.0
+        },
+        "orientation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -1.0,
+          "w": 0.0078
+        }
+      },
+      "/rosbot_xl_base_controller/odom": {
+        "position": {
+          "x": 4.481,
+          "y": 0.2546,
+          "z": 0.0
+        },
+        "orientation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.6342,
+          "w": 0.7732
+        }
+      }
+    }
+  },
+  {
+    "waypoint": "10",
+    "timestamp": 1771828791.4911096,
+    "data": {
+      "/odometry/filtered": {
+        "position": {
+          "x": 1.4802,
+          "y": 0.5521,
+          "z": 0.0
+        },
+        "orientation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -1.0,
+          "w": 0.0079
+        }
+      },
+      "/rosbot_xl_base_controller/odom": {
+        "position": {
+          "x": 4.5732,
+          "y": 0.7166,
+          "z": 0.0
+        },
+        "orientation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.6342,
+          "w": 0.7732
+        }
+      }
+    }
+  },
+  {
+    "waypoint": "11",
+    "timestamp": 1771828874.4098232,
+    "data": {
+      "/odometry/filtered": {
+        "position": {
+          "x": 1.47,
+          "y": 0.2166,
+          "z": 0.0
+        },
+        "orientation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 1.0,
+          "w": 0.0081
+        }
+      },
+      "/rosbot_xl_base_controller/odom": {
+        "position": {
+          "x": 4.408,
+          "y": 1.0089,
+          "z": 0.0
+        },
+        "orientation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.625,
+          "w": 0.7806
+        }
+      }
+    }
+  },
+  {
+    "waypoint": "12",
+    "timestamp": 1771828955.157487,
+    "data": {
+      "/odometry/filtered": {
+        "position": {
+          "x": 0.9665,
+          "y": 0.2425,
+          "z": 0.0
+        },
+        "orientation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.9238,
+          "w": 0.383
+        }
+      },
+      "/rosbot_xl_base_controller/odom": {
+        "position": {
+          "x": 4.5282,
+          "y": 1.5041,
+          "z": 0.0
+        },
+        "orientation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.4778,
+          "w": 0.8785
+        }
+      }
+    }
+  },
+  {
+    "waypoint": "13",
+    "timestamp": 1771829024.892906,
+    "data": {
+      "/odometry/filtered": {
+        "position": {
+          "x": 0.6512,
+          "y": 0.5582,
+          "z": 0.0
+        },
+        "orientation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -0.9997,
+          "w": 0.0264
+        }
+      },
+      "/rosbot_xl_base_controller/odom": {
+        "position": {
+          "x": 4.7706,
+          "y": 1.8786,
+          "z": 0.0
+        },
+        "orientation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.633,
+          "w": 0.7742
+        }
+      }
+    }
+  },
+  {
+    "waypoint": "14",
+    "timestamp": 1771829062.3337073,
+    "data": {
+      "/odometry/filtered": {
+        "position": {
+          "x": 0.1276,
+          "y": 0.5312,
+          "z": 0.0
+        },
+        "orientation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -0.0198,
+          "w": 0.9998
+        }
+      },
+      "/rosbot_xl_base_controller/odom": {
+        "position": {
+          "x": 4.8747,
+          "y": 2.3918,
+          "z": 0.0
+        },
+        "orientation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.9782,
+          "w": 0.2075
+        }
+      }
+    }
+  }
+]

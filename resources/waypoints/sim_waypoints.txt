@@ -1,0 +1,379 @@
+
+
+--- waypoint 1 ---
+Timestamp: 1771827867.1791258
+
+Topic: /odometry/filtered
+position:
+  x: 0.3539703789150606
+  y: -1.3874620173943299e-05
+  z: 0.0
+orientation:
+  x: 0.0
+  y: 0.0
+  z: -0.3804648089194381
+  w: 0.9247953985471032
+---
+
+Topic: /rosbot_xl_base_controller/odom
+position:
+  x: 0.3539720000033661
+  y: 2.3804460691546296e-13
+  z: 0.0
+orientation:
+  x: 0.0
+  y: 0.0
+  z: -0.1773213518527785
+  w: 0.9841530054707465
+---
+
+--- waypoint 2 ---
+Timestamp: 1771827913.6267204
+
+Topic: /odometry/filtered
+position:
+  x: 0.4752243292481849
+  y: -0.12002248182226911
+  z: 0.0
+orientation:
+  x: 0.0
+  y: 0.0
+  z: -0.6987705071719749
+  w: 0.7153459151393968
+---
+
+Topic: /rosbot_xl_base_controller/odom
+position:
+  x: 0.5138305759494203
+  y: -0.05953838335365238
+  z: 0.0
+orientation:
+  x: 0.0
+  y: 0.0
+  z: -0.34737188415218634
+  w: 0.9377274519286294
+---
+
+--- waypoint 3 ---
+Timestamp: 1771828021.4619267
+
+Topic: /odometry/filtered
+position:
+  x: 0.5154777812244412
+  y: -1.3885656436254457
+  z: 0.0
+orientation:
+  x: 0.0
+  y: 0.0
+  z: -0.0016193462970575277
+  w: 0.9999986888579255
+---
+
+Topic: /rosbot_xl_base_controller/odom
+position:
+  x: 1.517796817317237
+  y: -0.8934813000094576
+  z: 0.0
+orientation:
+  x: 0.0
+  y: 0.0
+  z: -0.005151804221637054
+  w: 0.9999867293685761
+---
+
+--- waypoint 4 ---
+Timestamp: 1771828090.7459548
+
+Topic: /odometry/filtered
+position:
+  x: 1.0411035131322786
+  y: -1.3904777208465873
+  z: 0.0
+orientation:
+  x: 0.0
+  y: 0.0
+  z: 0.6991992004577054
+  w: 0.7149269040113859
+---
+
+Topic: /rosbot_xl_base_controller/odom
+position:
+  x: 2.0432829218913287
+  y: -0.8988959186408868
+  z: 0.0
+orientation:
+  x: 0.0
+  y: 0.0
+  z: 0.3347153810183083
+  w: 0.9423192737654095
+---
+
+--- waypoint 5 ---
+Timestamp: 1771828148.3766
+
+Topic: /odometry/filtered
+position:
+  x: 1.0527638690264214
+  y: -0.8663613816030636
+  z: 0.0
+orientation:
+  x: 0.0
+  y: 0.0
+  z: 0.6992012346913712
+  w: 0.71492491452324
+---
+
+Topic: /rosbot_xl_base_controller/odom
+position:
+  x: 2.450061764140528
+  y: -0.5681923625472589
+  z: 0.0
+orientation:
+  x: 0.0
+  y: 0.0
+  z: 0.3347153810183083
+  w: 0.9423192737654095
+---
+
+--- waypoint 6 ---
+Timestamp: 1771828446.777559
+
+Topic: /odometry/filtered
+position:
+  x: 1.3951632515313221
+  y: -0.8605250343057438
+  z: 0.0
+orientation:
+  x: 0.0
+  y: 0.0
+  z: 0.7057122522145918
+  w: 0.7084985653296755
+---
+
+Topic: /rosbot_xl_base_controller/odom
+position:
+  x: 2.792328650363068
+  y: -0.5793897326351417
+  z: 0.0
+orientation:
+  x: 0.0
+  y: 0.0
+  z: 0.3242929359017448
+  w: 0.9459567071088544
+---
+
+--- waypoint 7 ---
+Timestamp: 1771828507.7506738
+
+Topic: /odometry/filtered
+position:
+  x: 1.3973425960698658
+  y: -0.3071570216918471
+  z: 0.0
+orientation:
+  x: 0.0
+  y: 0.0
+  z: 0.705705661613746
+  w: 0.7085051299505918
+---
+
+Topic: /rosbot_xl_base_controller/odom
+position:
+  x: 3.22930575370089
+  y: -0.23987956403800972
+  z: 0.0
+orientation:
+  x: 0.0
+  y: 0.0
+  z: 0.3242929359017448
+  w: 0.9459567071088544
+---
+
+--- waypoint 8 ---
+Timestamp: 1771828631.1340194
+
+Topic: /odometry/filtered
+position:
+  x: 1.961501199128511
+  y: -0.30587337357426725
+  z: 0.0
+orientation:
+  x: 0.0
+  y: 0.0
+  z: 0.7112891860163216
+  w: 0.7028994905790149
+---
+
+Topic: /rosbot_xl_base_controller/odom
+position:
+  x: 3.792734645501676
+  y: -0.27004821631269155
+  z: 0.0
+orientation:
+  x: 0.0
+  y: 0.0
+  z: 0.3199011690407811
+  w: 0.9474509180144065
+---
+
+--- waypoint 9 ---
+Timestamp: 1771828730.0301113
+
+Topic: /odometry/filtered
+position:
+  x: 1.951223440822608
+  y: 0.5594932654716213
+  z: 0.0
+orientation:
+  x: 0.0
+  y: 0.0
+  z: -0.9999698404625786
+  w: 0.007766477016312605
+---
+
+Topic: /rosbot_xl_base_controller/odom
+position:
+  x: 4.481032453975821
+  y: 0.25455806465378533
+  z: 0.0
+orientation:
+  x: 0.0
+  y: 0.0
+  z: 0.6341921098925859
+  w: 0.7731755090210697
+---
+
+--- waypoint 10 ---
+Timestamp: 1771828791.4911096
+
+Topic: /odometry/filtered
+position:
+  x: 1.4801959657513633
+  y: 0.5521147144799673
+  z: 0.0
+orientation:
+  x: 0.0
+  y: 0.0
+  z: -0.999968579456136
+  w: 0.00792717481057283
+---
+
+Topic: /rosbot_xl_base_controller/odom
+position:
+  x: 4.573182698879037
+  y: 0.7165718451402766
+  z: 0.0
+orientation:
+  x: 0.0
+  y: 0.0
+  z: 0.6341921098925513
+  w: 0.7731755090210981
+---
+
+--- waypoint 11 ---
+Timestamp: 1771828874.4098232
+
+Topic: /odometry/filtered
+position:
+  x: 1.4700494246434843
+  y: 0.21656080084638601
+  z: 0.0
+orientation:
+  x: 0.0
+  y: 0.0
+  z: 0.9999668445755394
+  w: 0.008143079862002784
+---
+
+Topic: /rosbot_xl_base_controller/odom
+position:
+  x: 4.408037120932042
+  y: 1.0088734497674163
+  z: 0.0
+orientation:
+  x: 0.0
+  y: 0.0
+  z: 0.6249903514436468
+  w: 0.7806324747295278
+---
+
+--- waypoint 12 ---
+Timestamp: 1771828955.157487
+
+Topic: /odometry/filtered
+position:
+  x: 0.96648116599901
+  y: 0.24245596159950064
+  z: 0.0
+orientation:
+  x: 0.0
+  y: 0.0
+  z: 0.9237562899961854
+  w: 0.3829808307115166
+---
+
+Topic: /rosbot_xl_base_controller/odom
+position:
+  x: 4.528167091145645
+  y: 1.504115994430035
+  z: 0.0
+orientation:
+  x: 0.0
+  y: 0.0
+  z: 0.4777864092933368
+  w: 0.8784760367218789
+---
+
+--- waypoint 13 ---
+Timestamp: 1771829024.892906
+
+Topic: /odometry/filtered
+position:
+  x: 0.6512250950801528
+  y: 0.5582334314165001
+  z: 0.0
+orientation:
+  x: 0.0
+  y: 0.0
+  z: -0.9996525551186459
+  w: 0.026358471973209778
+---
+
+Topic: /rosbot_xl_base_controller/odom
+position:
+  x: 4.770621891516905
+  y: 1.8786339615279308
+  z: 0.0
+orientation:
+  x: 0.0
+  y: 0.0
+  z: 0.6329542178406818
+  w: 0.7741892262991591
+---
+
+--- waypoint 14 ---
+Timestamp: 1771829062.3337073
+
+Topic: /odometry/filtered
+position:
+  x: 0.12762918947180682
+  y: 0.5312262984075791
+  z: 0.0
+orientation:
+  x: 0.0
+  y: 0.0
+  z: -0.019800207821206978
+  w: 0.9998039566686246
+---
+
+Topic: /rosbot_xl_base_controller/odom
+position:
+  x: 4.874681461932921
+  y: 2.3917915008928343
+  z: 0.0
+orientation:
+  x: 0.0
+  y: 0.0
+  z: 0.9782376087397685
+  w: 0.20748778481418975
+---
