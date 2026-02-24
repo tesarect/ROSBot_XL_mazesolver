@@ -13,7 +13,8 @@ using namespace std::chrono_literals;
 class DistanceController : public rclcpp::Node {
 
 public:
-  DistanceController() : Node("distance_controller_node") {
+  DistanceController()
+      : Node("distance_controller_node"), scene_number_(scene_number) {
     using std::placeholders::_1;
 
     // Stable PID values: kP=0.3; kD=1.0; kI=0.01
@@ -52,6 +53,21 @@ public:
   }
 
 private:
+  // Waypoint selection based on scene selection
+  void SelectWaypoints() {
+    switch (scene_number_) {
+    case 1: // Simulation
+      // Assign waypoints for Simulation
+      break;
+    case 2: // CyberWorld
+      // Assign waypoints for CyberWorld
+      break;
+    default:
+      RCLCPP_ERROR(this->get_logger(), "Invalid Scene Number: %d",
+                   scene_number_);
+    }
+  }
+
   // Control loop
   void timer_callback() {
     timer_->cancel();
@@ -162,7 +178,7 @@ private:
 
   };
 
-  Eigen::Vector2f home_pose_;
+  int scene_number_;
 
   rclcpp::CallbackGroup::SharedPtr timer_callback_group_;
   rclcpp::TimerBase::SharedPtr timer_;
@@ -174,7 +190,11 @@ private:
 int main(int argc, char *argv[]) {
   rclcpp::init(argc, argv);
 
-  auto node = std::make_shared<DistanceController>();
+  int scene_number = 1;
+  if (argc > 1) {
+    scene_number = std::atoi(argv[1]);
+  }
+  auto node = std::make_shared<DistanceController>(scene_number);
 
   rclcpp::executors::MultiThreadedExecutor executor;
   executor.add_node(node);
