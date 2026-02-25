@@ -4,6 +4,8 @@
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp/utilities.hpp"
 #include <Eigen/Dense>
+#include <fstream>
+#include <nlohmann/json.hpp>
 
 #include <cstddef>
 #include <functional>
@@ -13,14 +15,29 @@ using namespace std::chrono_literals;
 class DistanceController : public rclcpp::Node {
 
 public:
-  DistanceController()
+  DistanceController(int scene_number)
       : Node("distance_controller_node"), scene_number_(scene_number) {
     using std::placeholders::_1;
+
+    // Waypoints selection to perform the sequence.
+    // for all waypoints to be executed, -1 = all waypoints
+    // default selection is 2 from 0(home position)
+    num_waypoints_ = this->declare_parameter<int>("num_waypoints", 3);
+
+    // TODO: Need to add
+    // 1. declare_parameter for odometry topic selection btw
+    //    "/odometry/filtered" or "/rosbot_xl_base_controller/odom"
+    // 2. PID selection has to be automatic based on the scene selection too.
 
     // Stable PID values: kP=0.3; kD=1.0; kI=0.01
     kP_ = this->declare_parameter<float>("kP", 0.6f);
     kI_ = this->declare_parameter<float>("kI", 0.01f);
     kD_ = this->declare_parameter<float>("kD", 1.1f);
+    // kP_ = this->declare_parameter<float>("kP", 0.3f);
+    // kI_ = this->declare_parameter<float>("kI", 0.01f);
+    // kD_ = this->declare_parameter<float>("kD", 1.0f);
+
+    SelectWaypoints();
 
     // Timer fires once after 1 s to let odom settle, then runs control loop
     timer_callback_group_ = this->create_callback_group(
@@ -35,8 +52,6 @@ public:
     odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
         "odometry/filtered", 10,
         [this](const nav_msgs::msg::Odometry::SharedPtr msg) {
-          //   current_pose_(0) = msg->pose.pose.position.x;
-          //   current_pose_(1) = msg->pose.pose.position.y;
           current_pose_ << msg->pose.pose.position.x, msg->pose.pose.position.y;
         },
         odom_sub_options_);
@@ -55,17 +70,101 @@ public:
 private:
   // Waypoint selection based on scene selection
   void SelectWaypoints() {
+    std::string file_path;
     switch (scene_number_) {
     case 1: // Simulation
-      // Assign waypoints for Simulation
+            // Assign waypoints for Simulation
+      file_path = "/home/user/ros2_ws/src/ROSBot_XL_mazesolver/resources/"
+                  "waypoints/sim_waypoints.json";
       break;
     case 2: // CyberWorld
       // Assign waypoints for CyberWorld
+      file_path = "/home/user/ros2_ws/src/ROSBot_XL_mazesolver/resources/"
+                  "waypoints/real_waypoints.json";
       break;
     default:
       RCLCPP_ERROR(this->get_logger(), "Invalid Scene Number: %d",
                    scene_number_);
+      return;
     }
+
+    // Load JSON file
+    std::ifstream file(file_path);
+    if (!file.is_open()) {
+      RCLCPP_ERROR(this->get_logger(), "Could not open waypoints file: %s",
+                   file_path.c_str());
+      return;
+    }
+
+    nlohmann::json json_data;
+    file >> json_data;
+
+    // Parse all waypoints from JSON
+    // std::vector<Eigen::Vector2f> all_waypoints;
+    for (auto &wp : json_data) {
+      float x = wp["data"]["/odometry/filtered"]["position"]["x"];
+      float y = wp["data"]["/odometry/filtered"]["position"]["y"];
+      all_waypoints.push_back({x, y});
+    }
+
+    RCLCPP_INFO(this->get_logger(),
+                "Total %zu waypoints available in json file",
+                all_waypoints.size());
+
+    std::ostringstream oss_1;
+    oss_1 << "All waypoints loaded: [";
+    for (size_t i = 0; i < all_waypoints.size(); ++i) {
+      oss_1 << "[" << all_waypoints[i].x() << ", " << all_waypoints[i].y()
+            << "]";
+      if (i != all_waypoints.size() - 1)
+        oss_1 << ", ";
+    }
+    oss_1 << "]";
+
+    RCLCPP_INFO(this->get_logger(), "%s", oss_1.str().c_str());
+
+    // Apply num_waypoints limit (0 to N inclusive)
+    // int limit =
+    //     (num_waypoints_ == -1) ? (int)all_waypoints.size() - 1 :
+    //     num_waypoints_;
+    // limit = std::min(limit, (int)all_waypoints.size() - 1);
+    // int limit =
+    //     (num_waypoints_ == -1) ? (int)all_waypoints.size() : num_waypoints_;
+    // limit = std::min(limit, (int)all_waypoints.size());
+    int limit = (num_waypoints_ == -1)
+                    ? (int)all_waypoints.size()
+                    : std::min(num_waypoints_, (int)all_waypoints.size());
+
+    // Build forward slice: index 0 to limit
+    // std::vector<Eigen::Vector2f> forward(all_waypoints.begin(),
+    //                                      all_waypoints.begin() + limit + 1);
+    std::vector<Eigen::Vector2f> forward(all_waypoints.begin(),
+                                         all_waypoints.begin() + limit);
+
+    // Build return path: reverse of forward, skipping the last point (avoid
+    // duplicate)
+    // std::vector<Eigen::Vector2f> reverse_path(forward.rbegin() + 1,
+    //                                           forward.rend());
+    std::vector<Eigen::Vector2f> reverse_path(forward.rbegin(), forward.rend());
+
+    // Combine: forward <-and-> return
+    waypoints_ = forward;
+    waypoints_.insert(waypoints_.end(), reverse_path.begin(),
+                      reverse_path.end());
+
+    std::ostringstream oss_2;
+    oss_2 << "waypoints selected: [";
+    for (size_t i = 0; i < waypoints_.size(); ++i) {
+      oss_2 << "[" << waypoints_[i].x() << ", " << waypoints_[i].y() << "]";
+      if (i != waypoints_.size() - 1)
+        oss_2 << ", ";
+    }
+    oss_2 << "]";
+    RCLCPP_INFO(this->get_logger(), "%s", oss_2.str().c_str());
+
+    RCLCPP_INFO(this->get_logger(),
+                "Loaded %zu waypoints (forward=%zu + return=%zu) | limit=%d",
+                waypoints_.size(), forward.size(), reverse_path.size(), limit);
   }
 
   // Control loop
@@ -119,8 +218,9 @@ private:
         //   I: accumulates steady-state error
         //   D: damps velocity (reduces overshoot)
         input = kP_ * err_pose + kI_ * sum_I + kD_ * X_dot;
-        float max_vel = 2.5f;
-        if (err_pose.norm() > 0.35f && input.norm() > max_vel) {
+        // float max_vel = 2.5f;
+        // if (err_pose.norm() > 0.35f && input.norm() > max_vel) {
+        if (err_pose.norm() > dist_threshold && input.norm() > max_vel) {
           input = input.normalized() * max_vel;
         }
         RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
@@ -162,23 +262,16 @@ private:
   float kI_; // Integral
   float kD_; // Derivative
 
+  float max_vel = 3.5f;
+  float dist_threshold = 0.45f;
+
   Eigen::Vector2f current_pose_;
-  std::vector<Eigen::Vector2f> waypoints_{
 
-      {0.0, 1.0},  //  1
-      {0.0, 0.0},  //  Home
-      {0.0, -1.0}, //  2
-      {0.0, 0.0},  //  Home
-      {1.0, 1.0},  //  3
-      {0.0, 0.0},  //  Home
-      {1.0, -1.0}, //  4
-      {0.0, 0.0},  //  Home
-      {1.0, 0.0},  //  5
-      {0.0, 0.0},  //  Home
-
-  };
+  std::vector<Eigen::Vector2f> waypoints_;
+  std::vector<Eigen::Vector2f> all_waypoints;
 
   int scene_number_;
+  int num_waypoints_;
 
   rclcpp::CallbackGroup::SharedPtr timer_callback_group_;
   rclcpp::TimerBase::SharedPtr timer_;
