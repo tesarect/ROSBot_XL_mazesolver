@@ -43,5 +43,6 @@ Once it reached the last waypoint(num_waypoints passed in), it returns back to i
 ```bash.sh
 ros2 run distance_controller distance_controller 2
 ros2 run distance_controller distance_controller 1 --ros-args -p num_waypoints:=4
+ros2 run distance_controller distance_controller 1 --ros-args -p odom_topic:=/rosbot_xl_base_controller/odom
 ros2 run distance_controller distance_controller 1 --ros-args -p num_waypoints:=6 -p kP:=0.5 -p kI:=0.02 -p kD:=1.2
 ```

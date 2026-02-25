@@ -9,6 +9,7 @@
 
 #include <cstddef>
 #include <functional>
+#include <string>
 
 using namespace std::chrono_literals;
 
@@ -23,19 +24,19 @@ public:
     // for all waypoints to be executed, -1 = all waypoints
     // default selection is 2 from 0(home position)
     num_waypoints_ = this->declare_parameter<int>("num_waypoints", 3);
-
-    // TODO: Need to add
-    // 1. declare_parameter for odometry topic selection btw
-    //    "/odometry/filtered" or "/rosbot_xl_base_controller/odom"
-    // 2. PID selection has to be automatic based on the scene selection too.
+    odom_topic_ = this->declare_parameter<std::string>("odom_topic",
+                                                       "/odometry/filtered");
 
     // Stable PID values: kP=0.3; kD=1.0; kI=0.01
-    kP_ = this->declare_parameter<float>("kP", 0.6f);
-    kI_ = this->declare_parameter<float>("kI", 0.01f);
-    kD_ = this->declare_parameter<float>("kD", 1.1f);
-    // kP_ = this->declare_parameter<float>("kP", 0.3f);
-    // kI_ = this->declare_parameter<float>("kI", 0.01f);
-    // kD_ = this->declare_parameter<float>("kD", 1.0f);
+    if (scene_number_ == 1) {
+      kP_ = this->declare_parameter<float>("kP", 0.6f);
+      kI_ = this->declare_parameter<float>("kI", 0.01f);
+      kD_ = this->declare_parameter<float>("kD", 1.1f);
+    } else {
+      kP_ = this->declare_parameter<float>("kP", 0.3f);
+      kI_ = this->declare_parameter<float>("kI", 0.01f);
+      kD_ = this->declare_parameter<float>("kD", 1.0f);
+    };
 
     SelectWaypoints();
 
@@ -50,7 +51,7 @@ public:
     odom_sub_options_.callback_group = this->create_callback_group(
         rclcpp::CallbackGroupType::MutuallyExclusive);
     odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
-        "odometry/filtered", 10,
+        odom_topic_, 10,
         [this](const nav_msgs::msg::Odometry::SharedPtr msg) {
           current_pose_ << msg->pose.pose.position.x, msg->pose.pose.position.y;
         },
@@ -102,13 +103,11 @@ private:
     // Parse all waypoints from JSON
     // std::vector<Eigen::Vector2f> all_waypoints;
     for (auto &wp : json_data) {
-      float x = wp["data"]["/odometry/filtered"]["position"]["x"];
-      float y = wp["data"]["/odometry/filtered"]["position"]["y"];
+      float x = wp["data"][odom_topic_]["position"]["x"];
+      float y = wp["data"][odom_topic_]["position"]["y"];
       all_waypoints.push_back({x, y});
     }
-
-    RCLCPP_INFO(this->get_logger(),
-                "Total %zu waypoints available in json file",
+    RCLCPP_INFO(this->get_logger(), "Total %zu waypoints loaded from json file",
                 all_waypoints.size());
 
     std::ostringstream oss_1;
@@ -121,7 +120,7 @@ private:
     }
     oss_1 << "]";
 
-    RCLCPP_INFO(this->get_logger(), "%s", oss_1.str().c_str());
+    RCLCPP_DEBUG(this->get_logger(), "%s", oss_1.str().c_str());
 
     // Apply num_waypoints limit (0 to N inclusive)
     // int limit =
@@ -143,9 +142,10 @@ private:
 
     // Build return path: reverse of forward, skipping the last point (avoid
     // duplicate)
-    // std::vector<Eigen::Vector2f> reverse_path(forward.rbegin() + 1,
-    //                                           forward.rend());
-    std::vector<Eigen::Vector2f> reverse_path(forward.rbegin(), forward.rend());
+    std::vector<Eigen::Vector2f> reverse_path(forward.rbegin() + 1,
+                                              forward.rend());
+    // std::vector<Eigen::Vector2f> reverse_path(forward.rbegin(),
+    // forward.rend());
 
     // Combine: forward <-and-> return
     waypoints_ = forward;
@@ -162,9 +162,10 @@ private:
     oss_2 << "]";
     RCLCPP_INFO(this->get_logger(), "%s", oss_2.str().c_str());
 
-    RCLCPP_INFO(this->get_logger(),
-                "Loaded %zu waypoints (forward=%zu + return=%zu) | limit=%d",
-                waypoints_.size(), forward.size(), reverse_path.size(), limit);
+    // RCLCPP_INFO(this->get_logger(),
+    //             "Loaded %zu waypoints (forward=%zu + return=%zu) | limit=%d",
+    //             waypoints_.size(), forward.size(), reverse_path.size(),
+    //             limit);
   }
 
   // Control loop
@@ -218,14 +219,14 @@ private:
         //   I: accumulates steady-state error
         //   D: damps velocity (reduces overshoot)
         input = kP_ * err_pose + kI_ * sum_I + kD_ * X_dot;
-        // float max_vel = 2.5f;
-        // if (err_pose.norm() > 0.35f && input.norm() > max_vel) {
+
         if (err_pose.norm() > dist_threshold && input.norm() > max_vel) {
           input = input.normalized() * max_vel;
         }
-        RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
-                             "vel: x=%.3f y=%.3f | err=%.3f", cmd_vel.linear.x,
-                             cmd_vel.linear.y, err_pose.norm());
+        // RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
+        //                      "vel: x=%.3f y=%.3f | err=%.3f",
+        //                      cmd_vel.linear.x, cmd_vel.linear.y,
+        //                      err_pose.norm());
 
         cmd_vel.linear.x = input(0);
         cmd_vel.linear.y = input(1);
@@ -266,12 +267,12 @@ private:
   float dist_threshold = 0.45f;
 
   Eigen::Vector2f current_pose_;
-
   std::vector<Eigen::Vector2f> waypoints_;
   std::vector<Eigen::Vector2f> all_waypoints;
 
   int scene_number_;
   int num_waypoints_;
+  std::string odom_topic_;
 
   rclcpp::CallbackGroup::SharedPtr timer_callback_group_;
   rclcpp::TimerBase::SharedPtr timer_;
