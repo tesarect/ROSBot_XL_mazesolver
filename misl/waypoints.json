@@ -1,32 +1,96 @@
 [
   {
     "waypoint": "0",
-    "timestamp": 1772003634.9035683,
+    "timestamp": 1772131189.582574,
     "data": {
       "/odometry/filtered": {
         "position": {
-          "x": 2.0377,
-          "y": 2.9239,
+          "x": -1.1141,
+          "y": 0.2086,
           "z": -0.0
         },
         "orientation": {
-          "x": 0.0,
-          "y": 0.0,
-          "z": -0.0295,
-          "w": 0.9996
+          "x": -0.0,
+          "y": -0.0,
+          "z": -0.0048,
+          "w": 1.0
         }
       },
       "/rosbot_xl_base_controller/odom": {
         "position": {
-          "x": -1.981,
-          "y": 2.3957,
+          "x": -1.1239,
+          "y": 0.369,
           "z": 0.0
         },
         "orientation": {
           "x": 0.0,
           "y": 0.0,
-          "z": -0.6836,
-          "w": 0.7298
+          "z": 0.0463,
+          "w": 0.9989
+        }
+      }
+    }
+  },
+  {
+    "waypoint": "1",
+    "timestamp": 1772131240.5342789,
+    "data": {
+      "/odometry/filtered": {
+        "position": {
+          "x": -0.1835,
+          "y": 0.1862,
+          "z": -0.0
+        },
+        "orientation": {
+          "x": -0.0,
+          "y": 0.0,
+          "z": 0.0001,
+          "w": 1.0
+        }
+      },
+      "/rosbot_xl_base_controller/odom": {
+        "position": {
+          "x": -0.1938,
+          "y": 0.4279,
+          "z": 0.0
+        },
+        "orientation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0296,
+          "w": 0.9996
+        }
+      }
+    }
+  },
+  {
+    "waypoint": "2",
+    "timestamp": 1772131263.8302572,
+    "data": {
+      "/odometry/filtered": {
+        "position": {
+          "x": -0.2022,
+          "y": -0.3078,
+          "z": -0.0
+        },
+        "orientation": {
+          "x": -0.0,
+          "y": -0.0,
+          "z": -0.0158,
+          "w": 0.9999
+        }
+      },
+      "/rosbot_xl_base_controller/odom": {
+        "position": {
+          "x": -0.1788,
+          "y": -0.0666,
+          "z": 0.0
+        },
+        "orientation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0021,
+          "w": 1.0
         }
       }
     }
