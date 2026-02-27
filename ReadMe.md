@@ -1,5 +1,6 @@
 
 
+
 # ROSBot XL robot Maze Solver
 A demonstration for  manoeuvring through the maze in both simulation and real world.  
 
@@ -48,6 +49,8 @@ ros2 run distance_controller distance_controller 2
 ROSBot_XL can also be fine tuned through following extra arguments as listed below and execute movement based on them.
 - `num_waypoints`: Number of waypoints from the home position to be executed directly from command like. Default waypoints selected will be `3`.
 - `odom_topic`: Odom topic through `odom_topic` argument. Default will be `/odometry/filtered`
+- `kP`, `kI` & `kD`: are the PID values. Default depends upon sim or real environment.
+- `goal_tol`: Tolerance to reach Goal. Default is 0.02(2cm)
 
 Once it reaches the last waypoint(as per passed in `num_waypoints`), it returns back to its home position.
 [See waypoints](#waypoint-recording)
@@ -58,3 +61,11 @@ ros2 run distance_controller distance_controller 1 --ros-args -p odom_topic:=/ro
 ros2 run distance_controller distance_controller 2 --ros-args -p num_waypoints:=6 -p kP:=0.5 -p kI:=0.02 -p kD:=1.2
 ```
 ## PID Turn Controller
+This controller pkg is to make the ROSBot XL to turn or face towards the mentioned way points or by default it faces towards 13, 6, 3 waypoints in simulation. For real environment it will be facing towards [TODO]
+Which can be overridden through `waypoint_sequence` argument too.
+PID can be passed in as arguments too, similar to `distance_controller`. Simulation and real environment has its own default values. Which can be fine tuned as per the need.
+
+```bash.sh
+$ ros2 run turn_controller turn_controller 1 
+$ ros2 run turn_controller turn_controller 2 --ros-args -p waypoint_sequence:="[14,3,9]" -p kP:=3.4 -p kI:=0.0001 -p kD:=2.2
+```
