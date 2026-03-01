@@ -2,6 +2,7 @@
 #include "ament_index_cpp/get_package_share_directory.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "nav_msgs/msg/odometry.hpp"
+#include "pid_maze_solver/pid.hpp"
 #include "rclcpp/logging.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp/utilities.hpp"
@@ -265,7 +266,6 @@ void PIDMazeSolver::LoadParameters() {
   odom_topic_ =
       this->declare_parameter<std::string>("odom_topic", "/odometry/filtered");
   laser_topic_ = this->declare_parameter<std::string>("laser_topic", "/scan");
-  //   laser_flip_ = this->declare_parameter<bool>("laser_flip", false);
 
   laser_offset_deg_ =
       this->declare_parameter<double>("laser_offset_deg", 180.0);
@@ -399,7 +399,6 @@ void PIDMazeSolver::waypoint_selection() {
   printWaypointsSequence(fwd_waypoint_indices_seq_, "Forward");
   printWaypointsSequence(rev_waypoint_indices_seq_, "Reverse");
   printWaypointsSequence(combined_waypoint_indices_seq_, "Combined");
-  std::exit(EXIT_FAILURE); // ⛔  s t o p
 
   //   Usage: to access ith waypoint in
   //   const PoseOrient& target =
@@ -441,71 +440,6 @@ PIDMazeSolver::compute_laser_indices(const Laser &scan) {
   return dirs;
 }
 
-// Check for Drift and build execution yaw list
-// Absolute mode: use recorded yaws directly
-// Relative mode: shift all yaws by (live_yaw - json_home_yaw)
-void PIDMazeSolver::BuildExecutionYaws() {
-
-  float json_home_yaw = all_waypoints_[0].yaw;
-  float live_yaw = current_pose_.yaw;
-
-  float yaw_offset = live_yaw - json_home_yaw;
-
-  while (yaw_offset > M_PI)
-    yaw_offset -= 2.0f * M_PI;
-  while (yaw_offset < -M_PI)
-    yaw_offset += 2.0f * M_PI;
-
-  // Compute position drift manually (no Eigen)
-  float dx_home = current_pose_.x - all_waypoints_[0].x;
-  float dy_home = current_pose_.y - all_waypoints_[0].y;
-
-  float drift = std::sqrt(dx_home * dx_home + dy_home * dy_home);
-
-  RCLCPP_INFO(this->get_logger(),
-              "Face toward waypoint position | drift=%.4f m", drift);
-
-  relative_mode_ = (drift > odom_drift_threshold_);
-
-  RCLCPP_INFO(this->get_logger(), "%s mode",
-              relative_mode_ ? "RELATIVE" : "ABSOLUTE");
-
-  float offset_x = 0.0f;
-  float offset_y = 0.0f;
-
-  if (relative_mode_) {
-    offset_x = dx_home;
-    offset_y = dy_home;
-
-    RCLCPP_WARN(this->get_logger(),
-                "Applying position offset (%.4f, %.4f) to waypoints", offset_x,
-                offset_y);
-  }
-
-  execution_yaws_.clear();
-
-  for (int idx : waypoint_sequence_) {
-    if (idx < 0 || idx >= (int)all_waypoints_.size()) {
-      RCLCPP_WARN(this->get_logger(),
-                  "Waypoint index %d out of range, skipping.", idx);
-      continue;
-    }
-
-    float wp_x = all_waypoints_[idx].x + offset_x;
-    float wp_y = all_waypoints_[idx].y + offset_y;
-
-    float dx = wp_x - current_pose_.x;
-    float dy = wp_y - current_pose_.y;
-
-    float target_yaw = std::atan2(dy, dx);
-
-    execution_yaws_.push_back(target_yaw);
-
-    RCLCPP_INFO(this->get_logger(), "WP[%d] → target yaw=%.4f rad (%.1f deg)",
-                idx, target_yaw, target_yaw * 180.0f / M_PI);
-  }
-}
-
 float PIDMazeSolver::NormalizeAngle(float angle) {
   while (angle > M_PI)
     angle -= 2.0f * M_PI;
@@ -540,133 +474,27 @@ void PIDMazeSolver::timer_callback() {
   // Build target yaw list with drift compensation
   // BuildExecutionYaws();
 
-  if (execution_yaws_.empty()) {
-    RCLCPP_ERROR(this->get_logger(),
-                 "No execution yaws — check waypoint_sequence.");
-    return;
-  }
+  std::exit(EXIT_FAILURE); // ⛔  s t o p
 
-  // Store initial yaw to return to at the end
-  float initial_yaw = current_pose_.yaw;
-
-  rclcpp::Rate rate(100ms); // 10 Hz control loop
-  Twist cmd_vel;
-
-  float err_yaw;
-  float prev_err_yaw = 0.0f;
-  float sum_I = 0.0f;
-  float dt;
-  rclcpp::Time current_time, prev_time;
-
-  for (size_t i = 0; i < execution_yaws_.size(); i++) {
-    float target_yaw = execution_yaws_[i];
-
-    RCLCPP_INFO(this->get_logger(),
-                "Turn %zu/%zu → target yaw=%.4f rad (%.1f deg)", i + 1,
-                execution_yaws_.size(), target_yaw, target_yaw * 180.0f / M_PI);
-
-    // Reset PID state for each turn
-    prev_err_yaw = 0.0f;
-    sum_I = 0.0f;
-    prev_time = this->get_clock()->now();
-
-    // PID loop until within yaw tolerance
-    err_yaw = NormalizeAngle(target_yaw - current_pose_.yaw);
-    while (std::abs(err_yaw) >= yaw_tolerance_ && rclcpp::ok()) {
-
-      err_yaw = NormalizeAngle(target_yaw - current_pose_.yaw);
-      current_time = this->get_clock()->now();
-      dt = (current_time - prev_time).seconds();
-
-      if (dt <= 0.0f) {
-        rate.sleep();
-        continue;
-      }
-
-      // Integral term
-      sum_I += err_yaw * dt;
-      sum_I = std::clamp(sum_I, -1.0f, 1.0f); // anti-windup
-
-      // Derivative term (rate of yaw error change)
-      float derivative = (err_yaw - prev_err_yaw) / dt;
-
-      // PID output → angular velocity
-      float angular_vel = TkP_ * err_yaw + TkI_ * sum_I + TkD_ * derivative;
-
-      // Clamp to max angular velocity
-      angular_vel = std::clamp(angular_vel, -max_ang_vel_, max_ang_vel_);
-
-      // Strictly in-place rotation — no translation
-      cmd_vel.linear.x = 0.0f;
-      cmd_vel.linear.y = 0.0f;
-      cmd_vel.angular.z = angular_vel;
-      twist_pub_->publish(cmd_vel);
-
-      RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 500,
-                           "Turn %zu | err=%.4f rad (%.1f deg) | "
-                           "P=%.3f I=%.3f D=%.3f | ang_vel=%.3f",
-                           i + 1, err_yaw, err_yaw * 180.0f / M_PI,
-                           TkP_ * err_yaw, TkI_ * sum_I, TkD_ * derivative,
-                           angular_vel);
-
-      prev_err_yaw = err_yaw;
-      prev_time = current_time;
-      rate.sleep();
-    }
-
-    // Stop and pause at each target yaw
+  switch (state_) {
+  case State::INITIAL:
+    get_homepostion();
+    break;
+  case State::TURN:
+    face_next_wp();
+    break;
+  case State::MOVE:
+    head_to_next_wp();
     StopRobot();
-    RCLCPP_INFO(this->get_logger(),
-                "Turn %zu reached | final yaw=%.4f rad | err=%.4f rad", i + 1,
-                current_pose_.yaw, err_yaw);
-    // current_pose_(2), err_yaw);
-    rclcpp::sleep_for(1s);
+  case State::FINAL:
+    StopRobot();
+    rclcpp::shutdown();
   }
-
-  RCLCPP_INFO(this->get_logger(), "Returning to initial yaw=%.4f rad",
-              initial_yaw);
-
-  prev_err_yaw = 0.0f;
-  sum_I = 0.0f;
-  prev_time = this->get_clock()->now();
-
-  //   err_yaw = NormalizeAngle(initial_yaw - current_pose_(2));
-  err_yaw = NormalizeAngle(initial_yaw - current_pose_.yaw);
-  while (std::abs(err_yaw) >= yaw_tolerance_ && rclcpp::ok()) {
-
-    // err_yaw = NormalizeAngle(initial_yaw - current_pose_(2));
-    err_yaw = NormalizeAngle(initial_yaw - current_pose_.yaw);
-    current_time = this->get_clock()->now();
-    dt = (current_time - prev_time).seconds();
-
-    if (dt <= 0.0f) {
-      rate.sleep();
-      continue;
-    }
-
-    sum_I += err_yaw * dt;
-    sum_I = std::clamp(sum_I, -1.0f, 1.0f);
-
-    float derivative = (err_yaw - prev_err_yaw) / dt;
-    float angular_vel = TkP_ * err_yaw + TkI_ * sum_I + TkD_ * derivative;
-    angular_vel = std::clamp(angular_vel, -max_ang_vel_, max_ang_vel_);
-
-    cmd_vel.linear.x = 0.0f;
-    cmd_vel.linear.y = 0.0f;
-    cmd_vel.angular.z = angular_vel;
-    twist_pub_->publish(cmd_vel);
-
-    prev_err_yaw = err_yaw;
-    prev_time = current_time;
-    rate.sleep();
-  }
-
-  // Final stop
-  StopRobot();
-  RCLCPP_INFO(this->get_logger(),
-              "Returned to initial yaw. All turns complete. Mission done!");
-  rclcpp::shutdown();
 }
+
+void PIDMazeSolver::get_homepostion() {}
+void PIDMazeSolver::face_next_wp() {}
+void PIDMazeSolver::head_to_next_wp() {}
 
 std::string
 PIDMazeSolver::prnt_waypoints(const std::vector<PoseOrient> &vec) const {

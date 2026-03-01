@@ -29,8 +29,10 @@ public:
   };
 
   enum class State {
-    TURN, // Turn Towards next waypoint
-    MOVE, // Head Towards next waypoint
+    INITIAL, // Home or Starting position
+    TURN,    // Turn Towards next waypoint
+    MOVE,    // Head Towards next waypoint
+    FINAL    // Final position
   };
 
   struct Opening {
@@ -110,7 +112,11 @@ private:
   static double bandAvg(const std::vector<float> &ranges, int center, int half,
                         double clip, float range_max);
 
-  // === Functions ===
+  State state_{State::INITIAL};
+  void get_homepostion();
+  void face_next_wp();
+  void head_to_next_wp();
+
   void LoadParameters();
   void LoadWaypointsYaml();
   void BuildExecutionYaws();
