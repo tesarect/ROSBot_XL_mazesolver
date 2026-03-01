@@ -1,0 +1,23 @@
+maze_solver_node:
+  ros__parameters:
+    num_waypoints: -1 # all waypoints
+    odom_topic: "/odometry/filtered"
+    laser_topic: "/scan"
+    laser_offset_deg: 0.0
+    waypoint_file: "/home/user/ros2_ws/src/ROSBot_XL_mazesolver/resources/waypoints/real_waypoints.yaml"
+
+    # PID gain
+    # Distance Controller
+    DkP: 0.27
+    DkI: 0.001
+    DkD: 0.23
+    # Turn Controller
+    TkP: 0.8
+    TkI: 0.005
+    TkD: 0.5
+
+    max_ang_vel: 0.5
+
+    odom_drift_threshold: 0.05  # 5cm
+    yaw_tolerance: 0.01         # rad
+    goal_tolerance: 0.05

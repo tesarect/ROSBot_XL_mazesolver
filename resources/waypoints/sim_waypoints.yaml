@@ -1,0 +1,345 @@
+- '0':
+    timestamp: 1772202124.6750786
+    data:
+      /odometry/filtered:
+        position:
+          x: 0.0
+          y: 0.0
+          z: 0.0
+        orientation:
+          x: 0.0
+          y: 0.0
+          z: -0.0
+          w: 1.0
+      /rosbot_xl_base_controller/odom:
+        position:
+          x: 0.0
+          y: 0.0
+          z: 0.0
+        orientation:
+          x: 0.0
+          y: 0.0
+          z: 0.0
+          w: 1.0
+- '1':
+    timestamp: 1772202413.737825
+    data:
+      /odometry/filtered:
+        position:
+          x: 0.3661
+          y: -0.0
+          z: 0.0
+        orientation:
+          x: 0.0
+          y: 0.0
+          z: -0.0
+          w: 1.0
+      /rosbot_xl_base_controller/odom:
+        position:
+          x: 0.3661
+          y: 0.0
+          z: 0.0
+        orientation:
+          x: 0.0
+          y: 0.0
+          z: 0.0
+          w: 1.0
+- '2':
+    timestamp: 1772202478.0112414
+    data:
+      /odometry/filtered:
+        position:
+          x: 0.5048
+          y: -0.2022
+          z: 0.0
+        orientation:
+          x: 0.0
+          y: 0.0
+          z: -0.6954
+          w: 0.7186
+      /rosbot_xl_base_controller/odom:
+        position:
+          x: 0.5933
+          y: -0.1083
+          z: 0.0
+        orientation:
+          x: 0.0
+          y: 0.0
+          z: -0.3421
+          w: 0.9397
+- '3':
+    timestamp: 1772202553.1333847
+    data:
+      /odometry/filtered:
+        position:
+          x: 0.542
+          y: -1.3499
+          z: 0.0
+        orientation:
+          x: 0.0
+          y: 0.0
+          z: -0.0032
+          w: 1.0
+      /rosbot_xl_base_controller/odom:
+        position:
+          x: 1.4725
+          y: -0.8463
+          z: 0.0
+        orientation:
+          x: 0.0
+          y: 0.0
+          z: -0.0042
+          w: 1.0
+- '4':
+    timestamp: 1772202651.6348999
+    data:
+      /odometry/filtered:
+        position:
+          x: 1.0353
+          y: -1.3534
+          z: 0.0
+        orientation:
+          x: 0.0
+          y: 0.0
+          z: 0.7016
+          w: 0.7126
+      /rosbot_xl_base_controller/odom:
+        position:
+          x: 1.9562
+          y: -0.8701
+          z: 0.0
+        orientation:
+          x: 0.0
+          y: 0.0
+          z: 0.3357
+          w: 0.942
+- '5':
+    timestamp: 1772202697.3764513
+    data:
+      /odometry/filtered:
+        position:
+          x: 1.0432
+          y: -0.8445
+          z: 0.0
+        orientation:
+          x: 0.0
+          y: 0.0
+          z: 0.7016
+          w: 0.7126
+      /rosbot_xl_base_controller/odom:
+        position:
+          x: 2.3505
+          y: -0.5482
+          z: 0.0
+        orientation:
+          x: 0.0
+          y: 0.0
+          z: 0.3357
+          w: 0.942
+- '6':
+    timestamp: 1772202759.2039928
+    data:
+      /odometry/filtered:
+        position:
+          x: 1.4426
+          y: -0.8507
+          z: 0.0
+        orientation:
+          x: 0.0
+          y: 0.0
+          z: 0.7016
+          w: 0.7126
+      /rosbot_xl_base_controller/odom:
+        position:
+          x: 2.6031
+          y: -0.8576
+          z: 0.0
+        orientation:
+          x: 0.0
+          y: 0.0
+          z: 0.3357
+          w: 0.942
+- '7':
+    timestamp: 1772202797.864152
+    data:
+      /odometry/filtered:
+        position:
+          x: 1.4507
+          y: -0.3302
+          z: 0.0
+        orientation:
+          x: 0.0
+          y: 0.0
+          z: 0.7016
+          w: 0.7126
+      /rosbot_xl_base_controller/odom:
+        position:
+          x: 3.0061
+          y: -0.5286
+          z: 0.0
+        orientation:
+          x: 0.0
+          y: 0.0
+          z: 0.3357
+          w: 0.942
+- '8':
+    timestamp: 1772202900.720029
+    data:
+      /odometry/filtered:
+        position:
+          x: 1.977
+          y: -0.3064
+          z: 0.0
+        orientation:
+          x: 0.0
+          y: 0.0
+          z: 0.7016
+          w: 0.7126
+      /rosbot_xl_base_controller/odom:
+        position:
+          x: 3.3634
+          y: -0.9157
+          z: 0.0
+        orientation:
+          x: 0.0
+          y: 0.0
+          z: 0.3357
+          w: 0.942
+- '9':
+    timestamp: 1772203006.122718
+    data:
+      /odometry/filtered:
+        position:
+          x: 1.9698
+          y: 0.5623
+          z: 0.0
+        orientation:
+          x: 0.0
+          y: 0.0
+          z: 1.0
+          w: 0.0087
+      /rosbot_xl_base_controller/odom:
+        position:
+          x: 4.0397
+          y: -0.3459
+          z: 0.0
+        orientation:
+          x: 0.0
+          y: 0.0
+          z: 0.643
+          w: 0.7659
+- '10':
+    timestamp: 1772203035.4779632
+    data:
+      /odometry/filtered:
+        position:
+          x: 1.5298
+          y: 0.57
+          z: 0.0
+        orientation:
+          x: 0.0
+          y: 0.0
+          z: 1.0
+          w: 0.0087
+      /rosbot_xl_base_controller/odom:
+        position:
+          x: 4.1159
+          y: 0.0876
+          z: 0.0
+        orientation:
+          x: 0.0
+          y: 0.0
+          z: 0.643
+          w: 0.7659
+- '11':
+    timestamp: 1772203076.5044339
+    data:
+      /odometry/filtered:
+        position:
+          x: 1.524
+          y: 0.2424
+          z: 0.0
+        orientation:
+          x: 0.0
+          y: 0.0
+          z: 1.0
+          w: 0.0087
+      /rosbot_xl_base_controller/odom:
+        position:
+          x: 3.7932
+          y: 0.1443
+          z: 0.0
+        orientation:
+          x: 0.0
+          y: 0.0
+          z: 0.643
+          w: 0.7659
+- '12':
+    timestamp: 1772203104.4609628
+    data:
+      /odometry/filtered:
+        position:
+          x: 1.0458
+          y: 0.2507
+          z: 0.0
+        orientation:
+          x: 0.0
+          y: 0.0
+          z: 1.0
+          w: 0.0086
+      /rosbot_xl_base_controller/odom:
+        position:
+          x: 3.876
+          y: 0.6154
+          z: 0.0
+        orientation:
+          x: 0.0
+          y: 0.0
+          z: 0.643
+          w: 0.7659
+- '13':
+    timestamp: 1772203185.1753373
+    data:
+      /odometry/filtered:
+        position:
+          x: 0.7534
+          y: 0.5532
+          z: 0.0
+        orientation:
+          x: 0.0
+          y: 0.0
+          z: -1.0
+          w: 0.0081
+      /rosbot_xl_base_controller/odom:
+        position:
+          x: 4.0906
+          y: 0.9772
+          z: 0.0
+        orientation:
+          x: 0.0
+          y: 0.0
+          z: 0.6442
+          w: 0.7649
+- '14':
+    timestamp: 1772203238.2802262
+    data:
+      /odometry/filtered:
+        position:
+          x: 0.0941
+          y: 0.542
+          z: 0.0
+        orientation:
+          x: 0.0
+          y: 0.0
+          z: 0.0025
+          w: 1.0
+      /rosbot_xl_base_controller/odom:
+        position:
+          x: 4.2027
+          y: 1.6266
+          z: 0.0
+        orientation:
+          x: 0.0
+          y: 0.0
+          z: 0.0011
+          w: 1.0
