@@ -17,6 +17,9 @@
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <sstream>
 #include <string>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
 #include <vector>
 
 using namespace std::chrono_literals;
@@ -26,12 +29,12 @@ PIDMazeSolver::PIDMazeSolver(int scene_number,
     : Node("maze_solver_node", options), scene_number_(scene_number) {
 
   LoadParameters();
-  LoadWaypointsYaml();
+  // LoadWaypointsYaml();   // Moving it to timer_callback - runs only once.
 
   timer_callback_group_ =
       this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
   timer_ = this->create_wall_timer(
-      1s, std::bind(&PIDMazeSolver::timer_callback, this),
+      50ms, std::bind(&PIDMazeSolver::timer_callback, this),
       timer_callback_group_);
 
   odom_sub_options_.callback_group =
@@ -47,6 +50,8 @@ PIDMazeSolver::PIDMazeSolver(int scene_number,
         float qw = msg->pose.pose.orientation.w;
         current_pose_.yaw = 2.0f * std::atan2(qz, qw); // yaw
         initial_odom_received_ = true;
+        // RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 1,
+        //                      " odom callback ---- 🛰️");
       },
       odom_sub_options_);
 
@@ -61,14 +66,26 @@ PIDMazeSolver::PIDMazeSolver(int scene_number,
       laser_sub_options_);
 
   RCLCPP_INFO(this->get_logger(),
-              "PID gains: TkP=%.3f TkI=%.3f TkD=%.3f | max_ang_vel=%.3f", TkP_,
-              TkI_, TkD_, max_ang_vel_);
-  RCLCPP_INFO(this->get_logger(), "PIDMazeSolver initialization complete.");
+              " Dist PID gains: DkP=%.3f DkI=%.3f DkD=%.3f | max_lin_vel=%.3f",
+              DkP_, DkI_, DkD_, max_lin_vel_);
+  RCLCPP_INFO(this->get_logger(),
+              " Turn PID gains: TkP=%.3f TkI=%.3f TkD=%.3f | max_ang_vel=%.3f",
+              TkP_, TkI_, TkD_, max_ang_vel_);
+
+  distance_pid_.set_gain(DkP_, DkI_, DkD_);
+  distance_pid_.set_limit(max_lin_vel_, 1.0);
+  turn_pid_.set_gain(TkP_, TkI_, TkD_);
+  turn_pid_.set_limit(max_ang_vel_, 1.0);
+  RCLCPP_INFO(this->get_logger(), " Turn & Distance PID set 🎛️");
+
+  RCLCPP_INFO(this->get_logger(),
+              "PIDMazeSolver initialization complete. ✈️");
 
   // std::exit(EXIT_FAILURE); // ⛔  s t o p
 }
 
 void PIDMazeSolver::initLaser(const Laser::SharedPtr msg) {
+  //   RCLCPP_INFO(get_logger(), " inside initLaser 🔦 🟢");
   angle_min_ = msg->angle_min;
   angle_increment_ = msg->angle_increment;
   num_rays_ = static_cast<int>(msg->ranges.size());
@@ -165,6 +182,7 @@ void PIDMazeSolver::laserCallback(const Laser::SharedPtr msg) {
   if (!laser_initialized_)
     initLaser(msg);
 
+  //   RCLCPP_INFO(get_logger(), " inside laserCallback--- 🔦 ");
   const auto &ranges = msg->ranges;
 
   dN = bandAvg(ranges, north_idx_, band_half_, MAX_RANGE_CLIP, msg->range_max);
@@ -263,6 +281,7 @@ void PIDMazeSolver::laserCallback(const Laser::SharedPtr msg) {
 
 void PIDMazeSolver::LoadParameters() {
   num_waypoints_ = this->declare_parameter<int>("num_waypoints", -1);
+
   odom_topic_ =
       this->declare_parameter<std::string>("odom_topic", "/odometry/filtered");
   laser_topic_ = this->declare_parameter<std::string>("laser_topic", "/scan");
@@ -283,29 +302,95 @@ void PIDMazeSolver::LoadParameters() {
   odom_drift_threshold_ =
       this->declare_parameter<float>("odom_drift_threshold", 0.05f);
   yaw_tolerance_ = this->declare_parameter<float>("yaw_tolerance", 0.05f);
+  goal_tolerance_ = this->declare_parameter<float>("goal_tol", 0.02f);
 
   RCLCPP_INFO(this->get_logger(), " -Parameters Initialized");
 }
 
 void PIDMazeSolver::LoadWaypointsYaml() {
   // Select file based on scene
-  std::string file_path;
+  std::string selected_file;
+
+  if (scene_number_ == 1 || scene_number_ == 3 || scene_number_ == 5) {
+    selected_file = "/home/user/ros2_ws/src/ROSBot_XL_mazesolver/resources/"
+                    "waypoints/sim_waypoints.yaml";
+  } else if (scene_number_ == 2 || scene_number_ == 4 || scene_number_ == 6) {
+    selected_file = "/home/user/ros2_ws/src/ROSBot_XL_mazesolver/resources/"
+                    "waypoints/real_waypoints.yaml";
+    ignore_waypoints_ = {2};
+  } else {
+    RCLCPP_ERROR(get_logger(), "Invalid scene number");
+    return;
+  }
+  RCLCPP_INFO(get_logger(), " inside LoadWaypointsYaml  🐾");
+
+  load_all_waypoints(selected_file);
+
   switch (scene_number_) {
   case 1:
-    file_path = "/home/user/ros2_ws/src/ROSBot_XL_mazesolver/resources/"
-                "waypoints/sim_waypoints.yaml";
+    final_waypoint_indices_seq_ = fwd_waypoint_indices_seq_;
+
     break;
   case 2:
-    file_path = "/home/user/ros2_ws/src/ROSBot_XL_mazesolver/resources/"
-                "waypoints/real_waypoints.yaml";
+    final_waypoint_indices_seq_ = fwd_waypoint_indices_seq_;
     break;
   case 3:
-    file_path = "/home/user/ros2_ws/src/ROSBot_XL_mazesolver/resources/"
-                "waypoints/real_waypoints.yaml";
+    if (!fwd_waypoint_indices_seq_.empty()) {
+      rev_waypoint_indices_seq_ = fwd_waypoint_indices_seq_;
+      std::reverse(rev_waypoint_indices_seq_.begin(),
+                   rev_waypoint_indices_seq_.end());
+
+      final_waypoint_indices_seq_ = rev_waypoint_indices_seq_;
+      printWaypointsSequence(final_waypoint_indices_seq_, "Reverse");
+    } else {
+      RCLCPP_ERROR(
+          get_logger(),
+          "Unable to prepare waypoint for simulations reverse waypoints");
+      return;
+    }
     break;
   case 4:
-    file_path = "/home/user/ros2_ws/src/ROSBot_XL_mazesolver/resources/"
-                "waypoints/real_waypoints.yaml";
+    if (!fwd_waypoint_indices_seq_.empty()) {
+      rev_waypoint_indices_seq_ = fwd_waypoint_indices_seq_;
+      std::reverse(rev_waypoint_indices_seq_.begin(),
+                   rev_waypoint_indices_seq_.end());
+      final_waypoint_indices_seq_ = rev_waypoint_indices_seq_;
+      printWaypointsSequence(final_waypoint_indices_seq_, "Reverse");
+    } else {
+      RCLCPP_ERROR(get_logger(),
+                   "Unable to prepare waypoint for real reverse waypoints");
+      return;
+    }
+    break;
+  case 5:
+    if (!fwd_waypoint_indices_seq_.empty()) {
+      combined_waypoint_indices_seq_ = fwd_waypoint_indices_seq_;
+      combined_waypoint_indices_seq_.insert(
+          combined_waypoint_indices_seq_.end(),
+          std::next(fwd_waypoint_indices_seq_.rbegin()),
+          fwd_waypoint_indices_seq_.rend());
+      final_waypoint_indices_seq_ = combined_waypoint_indices_seq_;
+      printWaypointsSequence(combined_waypoint_indices_seq_, "Combined");
+    } else {
+      RCLCPP_ERROR(get_logger(),
+                   "Unable to prepare waypoint for sim combined waypoints");
+      return;
+    }
+    break;
+  case 6:
+    if (!fwd_waypoint_indices_seq_.empty()) {
+      combined_waypoint_indices_seq_ = fwd_waypoint_indices_seq_;
+      combined_waypoint_indices_seq_.insert(
+          combined_waypoint_indices_seq_.end(),
+          std::next(fwd_waypoint_indices_seq_.rbegin()),
+          fwd_waypoint_indices_seq_.rend());
+      final_waypoint_indices_seq_ = combined_waypoint_indices_seq_;
+      printWaypointsSequence(combined_waypoint_indices_seq_, "Combined");
+    } else {
+      RCLCPP_ERROR(get_logger(),
+                   "Unable to prepare waypoint for real combined waypoints");
+      return;
+    }
     break;
   default:
     RCLCPP_ERROR(this->get_logger(), "Invalid scene number: %d", scene_number_);
@@ -313,13 +398,20 @@ void PIDMazeSolver::LoadWaypointsYaml() {
   }
 
   // Open file
-  std::ifstream file(file_path);
+  std::ifstream file(selected_file);
   if (!file.is_open()) {
-    RCLCPP_ERROR(this->get_logger(), "Could not open: %s", file_path.c_str());
+    RCLCPP_ERROR(this->get_logger(), "Could not open: %s",
+                 selected_file.c_str());
     return;
   }
+  RCLCPP_INFO(get_logger(), " waypoint sequence selection completed [🐾, 🐾,]");
+}
 
-  YAML::Node yaml_data = YAML::LoadFile(file_path);
+void PIDMazeSolver::load_all_waypoints(const std::string &file_name) {
+  RCLCPP_INFO(get_logger(), " all_waypoints [🐾, 🐾, 🐾, 🐾, 🐾, .... ]");
+
+  all_waypoints_.clear();
+  YAML::Node yaml_data = YAML::LoadFile(file_name);
 
   // Parsing all waypoints
   int total = yaml_data.size();
@@ -340,69 +432,98 @@ void PIDMazeSolver::LoadWaypointsYaml() {
     }
   }
 
-  RCLCPP_INFO(this->get_logger(), " -All Waypoint Loaded");
-  RCLCPP_INFO(this->get_logger(), "All waypoints: %s",
-              prnt_waypoints(all_waypoints_).c_str());
-  //   RCLCPP_INFO(this->get_logger(), "All Waypoints: %s",
-  //               prnt_v_eigen(all_waypoints_).c_str());
-
-  // // Pre-compute yaw deltas between consecutive waypoints (for relative
-  // mode) for (size_t i = 0; i + 1 < all_waypoints_.size(); i++) {
-  //   float delta_yaw = all_waypoints_[i + 1](2) - all_waypoints_[i](2);
-  //   // Normalize delta to -PI to PI
-  //   while (delta_yaw > M_PI)
-  //     delta_yaw -= 2.0f * M_PI;
-  //   while (delta_yaw < -M_PI)
-  //     delta_yaw += 2.0f * M_PI;
-  //   relative_yaw_deltas_.push_back(delta_yaw);
-  // }
-  // RCLCPP_INFO(this->get_logger(), "Relative yaw deltas: %s",
-  //             prnt_vector(relative_yaw_deltas_).c_str());
-  // RCLCPP_INFO(this->get_logger(),
-  //             "Loaded %zu waypoints | %zu yaw deltas pre-computed",
-  //             all_waypoints_.size(), relative_yaw_deltas_.size());
-  waypoint_selection();
-}
-
-void PIDMazeSolver::waypoint_selection() {
   fwd_waypoint_indices_seq_.clear();
-  std::vector<size_t> ignore;
-  if (scene_number_ == 2) {
-    ignore = {2};
-  }
   for (size_t idx = 0; idx < all_waypoints_.size(); ++idx) {
-    // if ignore is empty, select everything
-    if (ignore.empty() ||
-        std::find(ignore.begin(), ignore.end(), idx) == ignore.end()) {
+    if (ignore_waypoints_.empty() ||
+        std::find(ignore_waypoints_.begin(), ignore_waypoints_.end(), idx) ==
+            ignore_waypoints_.end()) {
       fwd_waypoint_indices_seq_.push_back(idx);
     }
   }
+  //   RCLCPP_INFO(get_logger(), "Ignore waypoints: %s",
+  //             fmt::format("[{}]", fmt::join(ignore_waypoints_, ",
+  //             ")).c_str());
 
-  if (fwd_waypoint_indices_seq_.empty()) {
-    RCLCPP_ERROR(
-        get_logger(),
-        "Unable to prepare waypoint for reverse and combined waypoints");
-    return;
-  }
+  waypoint_sequence_ = all_waypoints_; // shallow copy (safe for struct)
 
-  rev_waypoint_indices_seq_ = fwd_waypoint_indices_seq_;
-  std::reverse(rev_waypoint_indices_seq_.begin(),
-               rev_waypoint_indices_seq_.end());
-
-  combined_waypoint_indices_seq_ = fwd_waypoint_indices_seq_;
-
-  combined_waypoint_indices_seq_.insert(
-      combined_waypoint_indices_seq_.end(),
-      std::next(fwd_waypoint_indices_seq_.rbegin()),
-      fwd_waypoint_indices_seq_.rend());
-
+  RCLCPP_INFO(this->get_logger(), " -All Waypoint Loaded");
+  RCLCPP_INFO(this->get_logger(), "All waypoints: %s",
+              prnt_waypoints(all_waypoints_).c_str());
+  RCLCPP_INFO(this->get_logger(), "All waypoints (working copy): %s",
+              prnt_waypoints(waypoint_sequence_).c_str());
   printWaypointsSequence(fwd_waypoint_indices_seq_, "Forward");
-  printWaypointsSequence(rev_waypoint_indices_seq_, "Reverse");
-  printWaypointsSequence(combined_waypoint_indices_seq_, "Combined");
+}
 
-  //   Usage: to access ith waypoint in
-  //   const PoseOrient& target =
-  //     all_waypoints_[fwd_waypoint_indices_seq_[current_seq_index_]];
+void PIDMazeSolver::ApplyOdomCompensation() {
+  if (all_waypoints_.empty())
+    RCLCPP_ERROR(get_logger(),
+                 "Aborting Odom Compensation as all_waypoints_ are empty");
+  return;
+
+  // PoseOrient json_home = all_waypoints_[0];
+  PoseOrient json_home = waypoint_sequence_[0];
+  PoseOrient live = current_pose_;
+
+  // Position drift
+  //   float dx_drift = live.x - json_home.x;
+  //   float dy_drift = live.y - json_home.y;
+  float dx_drift = current_pose_.x - json_home.x;
+  float dy_drift = current_pose_.y - json_home.y;
+  float drift = std::sqrt(dx_drift * dx_drift + dy_drift * dy_drift);
+
+  // Yaw offset
+  //   float yaw_offset = NormalizeAngle(live.yaw - json_home.yaw);
+  float yaw_offset = NormalizeAngle(current_pose_.yaw - json_home.yaw);
+
+  RCLCPP_INFO(get_logger(), " inside applyOdomCompensation 🛰️ ♾️");
+
+  //   RCLCPP_INFO(this->get_logger(),
+  //               "JSON home=(%.4f, %.4f, %.4f) | live=(%.4f, %.4f, %.4f)",
+  //               json_home.x, json_home.y, json_home.yaw, live.x, live.y,
+  //               live.yaw);
+  RCLCPP_INFO(this->get_logger(),
+              "JSON home=(%.4f, %.4f, %.4f) | live=(%.4f, %.4f, %.4f)",
+              json_home.x, json_home.y, json_home.yaw, current_pose_.x,
+              current_pose_.y, live.yaw);
+  RCLCPP_INFO(this->get_logger(),
+              "drift=%.4f m | yaw_offset=%.4f rad | threshold=%.4f m", drift,
+              yaw_offset, odom_drift_threshold_);
+
+  if (drift > odom_drift_threshold_) {
+    relative_mode_ = true;
+    RCLCPP_WARN(this->get_logger(),
+                "RELATIVE mode | drift=%.4f m | yaw_offset=%.4f rad", drift,
+                yaw_offset);
+
+    // Shift all waypoint positions by drift vector
+    // Rotate all waypoint yaws by yaw_offset
+    // Modify waypoint_sequence_ (duplicate of `all_waypoints_`)
+    for (auto &wp : waypoint_sequence_) {
+      // Position compensation
+      wp.x += dx_drift;
+      wp.y += dy_drift;
+
+      // Yaw compensation — rotate position delta by yaw_offset too
+      // (if odom frame is rotated, positions need rotation not just shift)
+      if (std::abs(yaw_offset) > 0.087f) { // > 5 degrees
+        float cos_y = std::cos(yaw_offset);
+        float sin_y = std::sin(yaw_offset);
+        // Rotate position around json_home
+        float rx = wp.x - json_home.x;
+        float ry = wp.y - json_home.y;
+        wp.x = json_home.x + rx * cos_y - ry * sin_y + dx_drift;
+        wp.y = json_home.y + rx * sin_y + ry * cos_y + dy_drift;
+        wp.yaw = NormalizeAngle(wp.yaw + yaw_offset);
+      }
+    }
+
+    RCLCPP_INFO(this->get_logger(), "Compensated waypoints: %s",
+                prnt_waypoints(waypoint_sequence_).c_str());
+  } else {
+    relative_mode_ = false;
+    RCLCPP_INFO(this->get_logger(),
+                "ABSOLUTE mode — using JSON positions directly");
+  }
 }
 
 PIDMazeSolver::LaserDirections
@@ -435,8 +556,7 @@ PIDMazeSolver::compute_laser_indices(const Laser &scan) {
   dirs.left_index = find_closest_index(M_PI_2);   // +Y left
   dirs.right_index = find_closest_index(-M_PI_2); // -Y right
 
-  RCLCPP_INFO(this->get_logger(),
-              " ---------------------------Laser Initialized");
+  RCLCPP_INFO(get_logger(), " inside compute_laser_indices 🔦");
   return dirs;
 }
 
@@ -459,10 +579,11 @@ void PIDMazeSolver::StopRobot() {
 
 void PIDMazeSolver::timer_callback() {
   timer_->cancel();
+
   // Wait until first real odom reading arrives
   rclcpp::Rate wait_rate(10ms);
   while (!initial_odom_received_ && rclcpp::ok()) {
-    RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 500,
+    RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
                          "Waiting for odometry...");
     wait_rate.sleep();
   }
@@ -471,30 +592,164 @@ void PIDMazeSolver::timer_callback() {
               "Live odom ready: pos=(%.4f, %.4f) yaw=%.4f rad", current_pose_.x,
               current_pose_.y, current_pose_.yaw);
 
-  // Build target yaw list with drift compensation
-  // BuildExecutionYaws();
+  LoadWaypointsYaml();
 
-  std::exit(EXIT_FAILURE); // ⛔  s t o p
+  RCLCPP_INFO(get_logger(), " inside timerCallback ⏰ ");
 
-  switch (state_) {
-  case State::INITIAL:
-    get_homepostion();
-    break;
-  case State::TURN:
-    face_next_wp();
-    break;
-  case State::MOVE:
-    head_to_next_wp();
-    StopRobot();
-  case State::FINAL:
-    StopRobot();
-    rclcpp::shutdown();
+  ApplyOdomCompensation();
+
+  current_waypoint_index_ = 0;
+  while (rclcpp::ok()) {
+    switch (state_) {
+    case State::INITIAL:
+      RCLCPP_INFO(get_logger(), " [INITIAL] state ⏩");
+      RCLCPP_INFO(get_logger(),
+                  "Dist(m)  N:%.2f  NE:%.2f  E:%.2f  SE:%.2f  S:%.2f  SW:%.2f "
+                  "W:%.2f  NW:%.2f",
+                  dN, dNE, dE, dSE, dS, dSW, dW, dNW);
+      get_next_wp();
+      break;
+    case State::TURN:
+      RCLCPP_INFO(get_logger(), " [TURN] state ⏩");
+      RCLCPP_INFO(get_logger(),
+                  "Dist(m)  N:%.2f  NE:%.2f  E:%.2f  SE:%.2f  S:%.2f  SW:%.2f "
+                  "W:%.2f  NW:%.2f",
+                  dN, dNE, dE, dSE, dS, dSW, dW, dNW);
+      face_next_wp();
+      break;
+    case State::MOVE:
+      RCLCPP_INFO(get_logger(), " [MOVE] state ⏩");
+      RCLCPP_INFO(get_logger(),
+                  "Dist(m)  N:%.2f  NE:%.2f  E:%.2f  SE:%.2f  S:%.2f  SW:%.2f "
+                  "W:%.2f  NW:%.2f",
+                  dN, dNE, dE, dSE, dS, dSW, dW, dNW);
+      head_to_next_wp();
+      std::exit(EXIT_FAILURE); // ⛔  s t o p
+      break;
+    case State::FINAL:
+      RCLCPP_INFO(get_logger(), " [FINAL] state ⏩");
+      RCLCPP_INFO(get_logger(),
+                  "Dist(m)  N:%.2f  NE:%.2f  E:%.2f  SE:%.2f  S:%.2f  SW:%.2f "
+                  "W:%.2f  NW:%.2f",
+                  dN, dNE, dE, dSE, dS, dSW, dW, dNW);
+      StopRobot();
+      rclcpp::shutdown();
+      return;
+    }
   }
 }
 
-void PIDMazeSolver::get_homepostion() {}
-void PIDMazeSolver::face_next_wp() {}
+void PIDMazeSolver::get_next_wp() {
+
+  // Guard — check sequence bounds
+  if (current_waypoint_index_ >= (int)final_waypoint_indices_seq_.size()) {
+    RCLCPP_INFO(get_logger(), "All waypoints complete.");
+    state_ = State::FINAL;
+    return;
+  }
+
+  // Current target waypoint
+  size_t wp_idx = final_waypoint_indices_seq_[current_waypoint_index_];
+  const PoseOrient &current_wp = waypoint_sequence_[wp_idx];
+
+  if (isWithinGoalTolerance(current_wp)) {
+    RCLCPP_INFO(get_logger(), "✅ Reached waypoint %d (seq idx=%zu)",
+                current_waypoint_index_, wp_idx);
+
+    // Advance to next
+    // current_waypoint_index_++;
+    next_waypoint_index_ = current_waypoint_index_ + 1;
+
+    // Check if more waypoints remain
+    if (current_waypoint_index_ >= (int)final_waypoint_indices_seq_.size()) {
+      state_ = State::FINAL;
+    } else {
+      state_ = State::TURN; // face next waypoint
+    }
+  } else {
+    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000,
+                         "⚠️ Not at waypoint %d yet — distance off",
+                         current_waypoint_index_);
+    state_ = State::TURN; // try to navigate there
+  }
+}
+
+void PIDMazeSolver::face_next_wp() {
+
+  size_t target_idx = final_waypoint_indices_seq_[next_waypoint_index_];
+  //   size_t target_idx = final_waypoint_indices_seq_[current_waypoint_index_];
+  PoseOrient target = waypoint_sequence_[target_idx];
+
+  // Compute angle from current position toward next waypoint
+  float dx = target.x - current_pose_.x;
+  float dy = target.y - current_pose_.y;
+  float target_yaw = std::atan2(dy, dx);
+
+  RCLCPP_INFO(this->get_logger(),
+              "[TURN] WP[%zu] → target_yaw=%.4f rad (%.1f deg) | "
+              "current_yaw=%.4f rad",
+              target_idx, target_yaw, target_yaw * 180.0f / M_PI,
+              current_pose_.yaw);
+
+  turn_pid_.reset();
+  float err_yaw = NormalizeAngle(target_yaw - current_pose_.yaw);
+
+  rclcpp::Rate rate(100ms);
+  rclcpp::Time prev_time = this->get_clock()->now();
+  geometry_msgs::msg::Twist cmd;
+
+  while (std::abs(err_yaw) >= yaw_tolerance_ && rclcpp::ok()) {
+    err_yaw = NormalizeAngle(target_yaw - current_pose_.yaw);
+
+    rclcpp::Time now = this->get_clock()->now();
+    float dt = (now - prev_time).seconds();
+    prev_time = now;
+
+    if (dt <= 0.0f) {
+      rate.sleep();
+      continue;
+    }
+
+    double ang_vel = turn_pid_.compute(err_yaw, dt);
+    publish_vel(0.0, 0.0, ang_vel);
+
+    RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 500,
+                         "[TURN] err=%.4f rad (%.1f deg) | ang_vel=%.3f",
+                         err_yaw, err_yaw * 180.0f / M_PI, ang_vel);
+
+    rate.sleep();
+  }
+
+  StopRobot();
+  RCLCPP_INFO(this->get_logger(),
+              "[TURN] Done | final_yaw=%.4f rad | err=%.4f rad",
+              current_pose_.yaw, err_yaw);
+
+  // Transition to MOVE state
+  state_ = State::MOVE;
+}
+
 void PIDMazeSolver::head_to_next_wp() {}
+
+void PIDMazeSolver::publish_vel(double vx, double vy, double wz) const {
+  // TODO: should we convert vx, vy, qz to &vx, &vy, &qz
+  Twist cmd;
+  cmd.linear.x = vx;
+  cmd.linear.y = vy;
+  cmd.angular.z = wz;
+  //   pub_->publish(cmd);
+  twist_pub_->publish(cmd);
+}
+
+bool PIDMazeSolver::isWithinGoalTolerance(const PoseOrient &target) const {
+  double dx = current_pose_.x - target.x;
+  double dy = current_pose_.y - target.y;
+
+  // double distance = std::sqrt(dx * dx + dy * dy);
+  // return (distance <= goal_tolerance_);
+  double distance_sq = dx * dx + dy * dy;
+  return (distance_sq <= goal_tolerance_ * goal_tolerance_);
+}
 
 std::string
 PIDMazeSolver::prnt_waypoints(const std::vector<PoseOrient> &vec) const {
@@ -515,7 +770,7 @@ void PIDMazeSolver::printWaypointsSequence(const std::vector<size_t> &seq,
   std::ostringstream oss;
   oss << name << " = [";
   for (size_t i = 0; i < seq.size(); ++i) {
-    const PoseOrient &wp = all_waypoints_[seq[i]];
+    const PoseOrient &wp = waypoint_sequence_[seq[i]];
     oss << "(" << wp.x << ", " << wp.y << ", " << wp.yaw << ")";
     if (i != seq.size() - 1) {
       oss << ", ";
@@ -545,8 +800,6 @@ int main(int argc, char **argv) {
   rclcpp::NodeOptions options;
   options.arguments({"--ros-args", "--params-file", config_file});
   auto node = std::make_shared<PIDMazeSolver>(scene_number, options);
-
-  //   auto node = std::make_shared<PIDMazeSolver>(scene_number);
 
   rclcpp::executors::MultiThreadedExecutor executor;
   executor.add_node(node);

@@ -2,10 +2,14 @@
 
 #include "geometry_msgs/msg/twist.hpp"
 #include "nav_msgs/msg/odometry.hpp"
+#include "pid_maze_solver/pid.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include <Eigen/Dense>
 #include <ostream>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
 #include <vector>
 
 // Aliases for convenience
@@ -49,7 +53,6 @@ private:
     int right_index;
   };
 
-  // === Member variables ===
   LaserDirections laser_dirs_;
   Laser::SharedPtr last_scan_;
 
@@ -59,24 +62,38 @@ private:
   float DkP_;
   float DkI_;
   float DkD_;
+  maze_solver::PID distance_pid_;
+  maze_solver::PID turn_pid_;
+  float max_lin_vel_;
   float max_ang_vel_;
   float odom_drift_threshold_;
   float yaw_tolerance_;
+  float goal_tolerance_;
 
   bool initial_odom_received_ = false;
   bool relative_mode_ = false;
   PoseOrient current_pose_;
-  std::vector<PoseOrient> all_waypoints_;
+  int current_waypoint_index_;
+  int next_waypoint_index_;
+  std::vector<PoseOrient> all_waypoints_; // original read from wapoint yaml
+  std::vector<PoseOrient>
+      waypoint_sequence_; // copy of all_waypoints_ with OdomCompensation
   std::vector<size_t> fwd_waypoint_indices_seq_;
   std::vector<size_t> rev_waypoint_indices_seq_;
   std::vector<size_t> combined_waypoint_indices_seq_;
+  std::vector<size_t> final_waypoint_indices_seq_;
   std::vector<float> execution_yaws_;
-  std::vector<int> waypoint_sequence_; // indices to visit
+  std::vector<int> ignore_waypoints_;
+  //   std::vector<long> ignore_waypoints_;
 
   int num_waypoints_;
   int scene_number_;
+  //   std::string waypoints_file_path;
   std::string odom_topic_;
   std::string laser_topic_;
+
+  tf2_ros::Buffer tf_buffer_;
+tf2_ros::TransformListener tf_listener_;
 
   rclcpp::Publisher<Twist>::SharedPtr twist_pub_;
   rclcpp::Subscription<Odom>::SharedPtr odom_sub_;
@@ -113,9 +130,10 @@ private:
                         double clip, float range_max);
 
   State state_{State::INITIAL};
-  void get_homepostion();
+  void get_next_wp();
   void face_next_wp();
   void head_to_next_wp();
+  bool isWithinGoalTolerance(const PoseOrient &target) const;
 
   void LoadParameters();
   void LoadWaypointsYaml();
@@ -125,7 +143,10 @@ private:
   void laserCallback(const Laser::SharedPtr msg);
   void timer_callback();
   void StopRobot();
+  void publish_vel(double vx, double vy, double wz) const;
+  void load_all_waypoints(const std::string &file_name);
   void waypoint_selection();
+  void ApplyOdomCompensation();
   void printWaypointsSequence(const std::vector<size_t> &seq,
                               const std::string &name) const;
   // std::string prnt_waypoints() const;

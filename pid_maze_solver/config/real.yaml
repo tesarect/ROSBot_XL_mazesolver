@@ -4,7 +4,7 @@ maze_solver_node:
     odom_topic: "/odometry/filtered"
     laser_topic: "/scan"
     laser_offset_deg: 0.0
-    waypoint_file: "/home/user/ros2_ws/src/ROSBot_XL_mazesolver/resources/waypoints/real_waypoints.yaml"
+    # waypoint_file: "/home/user/ros2_ws/src/ROSBot_XL_mazesolver/resources/waypoints/real_waypoints.yaml"
 
     # PID gain
     # Distance Controller
