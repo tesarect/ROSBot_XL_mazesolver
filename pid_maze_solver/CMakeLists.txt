@@ -15,6 +15,9 @@ find_package(sensor_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
+find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
@@ -38,7 +41,9 @@ ament_target_dependencies(pid_maze_solver
 	geometry_msgs 
 	nav_msgs 
 	sensor_msgs 
-	tf2)
+	tf2
+    tf2_ros
+    tf2_geometry_msgs)
 
 # Specify include path for this target (modern CMake) -----------------
 target_include_directories(pid_maze_solver PUBLIC

@@ -1,5 +1,6 @@
 #include "pid_maze_solver/pid_maze_solver.hpp"
 #include "ament_index_cpp/get_package_share_directory.hpp"
+
 #include "geometry_msgs/msg/twist.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "pid_maze_solver/pid.hpp"
@@ -13,10 +14,13 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 #include <nlohmann/json.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <sstream>
 #include <string>
+#include <tf2/LinearMath/Matrix3x3.h>
+#include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
@@ -26,10 +30,15 @@ using namespace std::chrono_literals;
 
 PIDMazeSolver::PIDMazeSolver(int scene_number,
                              const rclcpp::NodeOptions &options)
-    : Node("maze_solver_node", options), scene_number_(scene_number) {
+    : Node("maze_solver_node", options), scene_number_(scene_number),
+      tf_buffer_(this->get_clock()) {
+  // PIDMazeSolver::PIDMazeSolver(int scene_number,
+  //                              const rclcpp::NodeOptions &options)
+  //     : Node("maze_solver_node", options), scene_number_(scene_number) {
 
   LoadParameters();
-  // LoadWaypointsYaml();   // Moving it to timer_callback - runs only once.
+
+  tf_listener_ = std::make_shared<tf2_ros::TransformListener>(tf_buffer_, this);
 
   timer_callback_group_ =
       this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
@@ -85,36 +94,76 @@ PIDMazeSolver::PIDMazeSolver(int scene_number,
 }
 
 void PIDMazeSolver::initLaser(const Laser::SharedPtr msg) {
-  //   RCLCPP_INFO(get_logger(), " inside initLaser 🔦 🟢");
+  RCLCPP_INFO(get_logger(), " inside initLaser 🔦 🟢");
+  geometry_msgs::msg::TransformStamped tf;
+  try {
+    tf = tf_buffer_.lookupTransform(
+        base_link_,           // target  (base_link)
+        msg->header.frame_id, // source  (laser frame)
+        msg->header.stamp, rclcpp::Duration::from_seconds(0.1));
+  } catch (tf2::TransformException &ex) {
+    RCLCPP_WARN(get_logger(), "TF lookup failed: %s — retrying next scan",
+                ex.what());
+    return; // don't mark initialized, retry on next scan
+  }
+  tf2::Quaternion q(tf.transform.rotation.x, tf.transform.rotation.y,
+                    tf.transform.rotation.z, tf.transform.rotation.w);
+  double roll, pitch, yaw;
+  tf2::Matrix3x3(q).getRPY(roll, pitch, yaw);
+  laser_to_base_yaw_ = yaw;
+
   angle_min_ = msg->angle_min;
   angle_increment_ = msg->angle_increment;
   num_rays_ = static_cast<int>(msg->ranges.size());
 
-  auto toIdx = [&](double deg) {
+  //   auto toIdx = [&](double deg) {
+  //     int idx = static_cast<int>(
+  //         std::round((deg * M_PI / 180.0 - angle_min_) / angle_increment_));
+  //     return std::clamp(idx, 0, num_rays_ - 1);
+  //   };
+
+  //   if (scene_number_ == 1) {
+  //     north_idx_ = toIdx(180.0);
+  //     south_idx_ = toIdx(0.0);
+  //     east_idx_ = toIdx(90.0);
+  //     west_idx_ = toIdx(-90.0);
+  //     se_idx_ = toIdx(45.0);
+  //     sw_idx_ = toIdx(-45.0);
+  //     ne_idx_ = toIdx(135.0);
+  //     nw_idx_ = toIdx(-135.0);
+  //   } else {
+  //     north_idx_ = toIdx(0.0);
+  //     south_idx_ = toIdx(180.0);
+  //     east_idx_ = toIdx(90.0);
+  //     west_idx_ = toIdx(-90.0);
+  //     ne_idx_ = toIdx(45.0);
+  //     nw_idx_ = toIdx(-45.0);
+  //     se_idx_ = toIdx(135.0);
+  //     sw_idx_ = toIdx(-135.0);
+  //   }
+
+  auto toIdxBase = [&](double base_deg) {
+    double laser_rad = base_deg * M_PI / 180.0 - laser_to_base_yaw_;
+    // wrap to [angle_min, angle_max]
+    while (laser_rad > M_PI)
+      laser_rad -= 2 * M_PI;
+    while (laser_rad < -M_PI)
+      laser_rad += 2 * M_PI;
     int idx = static_cast<int>(
-        std::round((deg * M_PI / 180.0 - angle_min_) / angle_increment_));
+        std::round((laser_rad - angle_min_) / angle_increment_));
     return std::clamp(idx, 0, num_rays_ - 1);
   };
 
-  if (scene_number_ == 1) {
-    north_idx_ = toIdx(180.0);
-    south_idx_ = toIdx(0.0);
-    east_idx_ = toIdx(90.0);
-    west_idx_ = toIdx(-90.0);
-    se_idx_ = toIdx(45.0);
-    sw_idx_ = toIdx(-45.0);
-    ne_idx_ = toIdx(135.0);
-    nw_idx_ = toIdx(-135.0);
-  } else {
-    north_idx_ = toIdx(0.0);
-    south_idx_ = toIdx(180.0);
-    east_idx_ = toIdx(90.0);
-    west_idx_ = toIdx(-90.0);
-    ne_idx_ = toIdx(45.0);
-    nw_idx_ = toIdx(-45.0);
-    se_idx_ = toIdx(135.0);
-    sw_idx_ = toIdx(-135.0);
-  }
+  // These now work for ANY laser mounting — sim or real, 0° or 180° or any
+  // angle
+  north_idx_ = toIdxBase(0.0);
+  south_idx_ = toIdxBase(180.0);
+  east_idx_ = toIdxBase(90.0);
+  west_idx_ = toIdxBase(-90.0);
+  ne_idx_ = toIdxBase(45.0);
+  nw_idx_ = toIdxBase(-45.0);
+  se_idx_ = toIdxBase(135.0);
+  sw_idx_ = toIdxBase(-135.0);
 
   front_idx_ = north_idx_;
 
@@ -280,12 +329,20 @@ void PIDMazeSolver::laserCallback(const Laser::SharedPtr msg) {
 }
 
 void PIDMazeSolver::LoadParameters() {
+  //   use_sim_time_ = this->declare_parameter<bool>("use_sim_time", false);
   num_waypoints_ = this->declare_parameter<int>("num_waypoints", -1);
+  ascending_wp_strafe_ =
+      this->declare_parameter<bool>("ascending_wp_strafe", false);
+  descending_wp_strafe_ =
+      this->declare_parameter<bool>("descending_wp_strafe", false);
 
   odom_topic_ =
       this->declare_parameter<std::string>("odom_topic", "/odometry/filtered");
-  laser_topic_ = this->declare_parameter<std::string>("laser_topic", "/scan");
 
+  laser_topic_ = this->declare_parameter<std::string>("laser_topic", "/scan");
+  base_link_ = this->declare_parameter<std::string>("base_link", "base_link");
+  laser_link_ =
+      this->declare_parameter<std::string>("laser_link", "laser_link");
   laser_offset_deg_ =
       this->declare_parameter<double>("laser_offset_deg", 180.0);
 
@@ -299,10 +356,12 @@ void PIDMazeSolver::LoadParameters() {
   DkD_ = this->declare_parameter<float>("DkD", 0.5f);
 
   max_ang_vel_ = this->declare_parameter<float>("max_ang_vel", 0.5f);
+  max_lin_vel_ = this->declare_parameter<float>("max_lin_vel", 0.5f);
+
   odom_drift_threshold_ =
       this->declare_parameter<float>("odom_drift_threshold", 0.05f);
   yaw_tolerance_ = this->declare_parameter<float>("yaw_tolerance", 0.05f);
-  goal_tolerance_ = this->declare_parameter<float>("goal_tol", 0.02f);
+  goal_tolerance_ = this->declare_parameter<float>("goal_tolerance", 0.02f);
 
   RCLCPP_INFO(this->get_logger(), " -Parameters Initialized");
 }
@@ -426,7 +485,16 @@ void PIDMazeSolver::load_all_waypoints(const std::string &file_name) {
         float qw = wp["orientation"]["w"].as<float>();
         float yaw = 2.0f * std::atan2(qz, qw);
 
-        all_waypoints_.push_back(PoseOrient(x, y, yaw));
+        bool asc_strafe = entry[key]["ascending_wp_strafe"]
+                              ? entry[key]["ascending_wp_strafe"].as<bool>()
+                              : false;
+        bool desc_strafe = entry[key]["descending_wp_strafe"]
+                               ? entry[key]["descending_wp_strafe"].as<bool>()
+                               : false;
+
+        // all_waypoints_.push_back(PoseOrient(x, y, yaw, asc_strafe,
+        // desc_strafe));
+        all_waypoints_.emplace_back(x, y, yaw, asc_strafe, desc_strafe);
         break;
       }
     }
@@ -602,7 +670,7 @@ void PIDMazeSolver::timer_callback() {
   while (rclcpp::ok()) {
     switch (state_) {
     case State::INITIAL:
-      RCLCPP_INFO(get_logger(), " [INITIAL] state ⏩");
+      RCLCPP_INFO(get_logger(), " [INITIAL] state 1️⃣⏩");
       RCLCPP_INFO(get_logger(),
                   "Dist(m)  N:%.2f  NE:%.2f  E:%.2f  SE:%.2f  S:%.2f  SW:%.2f "
                   "W:%.2f  NW:%.2f",
@@ -610,7 +678,7 @@ void PIDMazeSolver::timer_callback() {
       get_next_wp();
       break;
     case State::TURN:
-      RCLCPP_INFO(get_logger(), " [TURN] state ⏩");
+      RCLCPP_INFO(get_logger(), " [TURN] state 2️⃣⏩");
       RCLCPP_INFO(get_logger(),
                   "Dist(m)  N:%.2f  NE:%.2f  E:%.2f  SE:%.2f  S:%.2f  SW:%.2f "
                   "W:%.2f  NW:%.2f",
@@ -618,16 +686,16 @@ void PIDMazeSolver::timer_callback() {
       face_next_wp();
       break;
     case State::MOVE:
-      RCLCPP_INFO(get_logger(), " [MOVE] state ⏩");
+      RCLCPP_INFO(get_logger(), " [MOVE] state 3️⃣⏩");
       RCLCPP_INFO(get_logger(),
                   "Dist(m)  N:%.2f  NE:%.2f  E:%.2f  SE:%.2f  S:%.2f  SW:%.2f "
                   "W:%.2f  NW:%.2f",
                   dN, dNE, dE, dSE, dS, dSW, dW, dNW);
       head_to_next_wp();
-      std::exit(EXIT_FAILURE); // ⛔  s t o p
+      //   std::exit(EXIT_FAILURE); // ⛔  s t o p
       break;
     case State::FINAL:
-      RCLCPP_INFO(get_logger(), " [FINAL] state ⏩");
+      RCLCPP_INFO(get_logger(), " [FINAL] state 4️⃣⏩");
       RCLCPP_INFO(get_logger(),
                   "Dist(m)  N:%.2f  NE:%.2f  E:%.2f  SE:%.2f  S:%.2f  SW:%.2f "
                   "W:%.2f  NW:%.2f",
@@ -640,7 +708,6 @@ void PIDMazeSolver::timer_callback() {
 }
 
 void PIDMazeSolver::get_next_wp() {
-
   // Guard — check sequence bounds
   if (current_waypoint_index_ >= (int)final_waypoint_indices_seq_.size()) {
     RCLCPP_INFO(get_logger(), "All waypoints complete.");
@@ -675,9 +742,7 @@ void PIDMazeSolver::get_next_wp() {
 }
 
 void PIDMazeSolver::face_next_wp() {
-
   size_t target_idx = final_waypoint_indices_seq_[next_waypoint_index_];
-  //   size_t target_idx = final_waypoint_indices_seq_[current_waypoint_index_];
   PoseOrient target = waypoint_sequence_[target_idx];
 
   // Compute angle from current position toward next waypoint
@@ -713,23 +778,86 @@ void PIDMazeSolver::face_next_wp() {
     double ang_vel = turn_pid_.compute(err_yaw, dt);
     publish_vel(0.0, 0.0, ang_vel);
 
-    RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 500,
+    RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
                          "[TURN] err=%.4f rad (%.1f deg) | ang_vel=%.3f",
                          err_yaw, err_yaw * 180.0f / M_PI, ang_vel);
 
     rate.sleep();
   }
 
-  StopRobot();
+  //   StopRobot();
+  publish_vel(0.0, 0.0, 0.0);
+  rclcpp::sleep_for(std::chrono::seconds(1));
   RCLCPP_INFO(this->get_logger(),
               "[TURN] Done | final_yaw=%.4f rad | err=%.4f rad",
               current_pose_.yaw, err_yaw);
+  // TODO: LOG Facing next wp
 
   // Transition to MOVE state
   state_ = State::MOVE;
 }
 
-void PIDMazeSolver::head_to_next_wp() {}
+void PIDMazeSolver::head_to_next_wp() {
+  RCLCPP_INFO(get_logger(),
+              "[MOVE] PID gains: kP=%.3f kI=%.3f kD=%.3f | limit=%.3f", DkP_,
+              DkI_, DkD_, max_lin_vel_);
+  size_t target_idx = final_waypoint_indices_seq_[next_waypoint_index_];
+  //   PoseOrient target = waypoint_sequence_[target_idx];
+  const PoseOrient &target = waypoint_sequence_[target_idx];
+  printWaypointStruct(target, "Next Waypoint");
+
+  // Compute angle from current position toward next waypoint
+  float dx = target.x - current_pose_.x;
+  float dy = target.y - current_pose_.y;
+
+  float target_dist = std::sqrt(dx * dx + dy * dy);
+  RCLCPP_INFO(get_logger(),
+              "[MOVE] WP[%zu] → target=(%.4f, %.4f) | current=(%.4f, %.4f) | "
+              "target_dist=%.4f m",
+              target_idx, target.x, target.y, current_pose_.x, current_pose_.y,
+              target_dist);
+
+  distance_pid_.reset();
+  rclcpp::Rate rate(100ms);
+  rclcpp::Time prev_time = this->get_clock()->now();
+
+  while (target_dist >= goal_tolerance_ && rclcpp::ok()) {
+    // Recompute distance each iteration from fresh odom
+    dx = target.x - current_pose_.x;
+    dy = target.y - current_pose_.y;
+    target_dist = std::sqrt(dx * dx + dy * dy);
+
+    rclcpp::Time now = this->get_clock()->now();
+    float dt = (now - prev_time).seconds();
+    prev_time = now;
+
+    if (dt <= 0.0f) {
+      rate.sleep();
+      continue;
+    }
+
+    double lin_vel = distance_pid_.compute(target_dist, dt);
+
+    publish_vel(lin_vel, 0.0, 0.0);
+
+    RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 1000,
+                         "[MOVE] target_dist=%.4f m | lin_vel=%.3f",
+                         target_dist, lin_vel);
+
+    rate.sleep();
+  }
+
+  //   StopRobot();
+  publish_vel(0.0, 0.0, 0.0);
+  rclcpp::sleep_for(std::chrono::seconds(1));
+  RCLCPP_INFO(get_logger(),
+              "[MOVE] Done | final target_dist=%.4f m | pos=(%.4f, %.4f)",
+              target_dist, current_pose_.x, current_pose_.y);
+
+  // Advance waypoint index and go back to INITIAL to check arrival
+  current_waypoint_index_ = next_waypoint_index_;
+  state_ = State::INITIAL;
+}
 
 void PIDMazeSolver::publish_vel(double vx, double vy, double wz) const {
   // TODO: should we convert vx, vy, qz to &vx, &vy, &qz
@@ -745,19 +873,19 @@ bool PIDMazeSolver::isWithinGoalTolerance(const PoseOrient &target) const {
   double dx = current_pose_.x - target.x;
   double dy = current_pose_.y - target.y;
 
-  // double distance = std::sqrt(dx * dx + dy * dy);
-  // return (distance <= goal_tolerance_);
-  double distance_sq = dx * dx + dy * dy;
-  return (distance_sq <= goal_tolerance_ * goal_tolerance_);
+  double distance = std::sqrt(dx * dx + dy * dy);
+  return (distance <= goal_tolerance_);
 }
 
 std::string
 PIDMazeSolver::prnt_waypoints(const std::vector<PoseOrient> &vec) const {
-
   std::ostringstream oss;
+  oss << std::boolalpha;
   oss << "[";
   for (size_t i = 0; i < vec.size(); ++i) {
-    oss << "(" << vec[i].x << ", " << vec[i].y << ", " << vec[i].yaw << ")";
+    oss << "(" << vec[i].x << ", " << vec[i].y << ", " << vec[i].yaw
+        << ", asc_stf:" << vec[i].ascending_wp_strafe
+        << ", des_stf:" << vec[i].descending_wp_strafe << ")";
     if (i != vec.size() - 1)
       oss << ", ";
   }
@@ -768,16 +896,33 @@ PIDMazeSolver::prnt_waypoints(const std::vector<PoseOrient> &vec) const {
 void PIDMazeSolver::printWaypointsSequence(const std::vector<size_t> &seq,
                                            const std::string &name) const {
   std::ostringstream oss;
+  oss << std::boolalpha;
   oss << name << " = [";
   for (size_t i = 0; i < seq.size(); ++i) {
     const PoseOrient &wp = waypoint_sequence_[seq[i]];
-    oss << "(" << wp.x << ", " << wp.y << ", " << wp.yaw << ")";
+    oss << "(" << wp.x << ", " << wp.y << ", " << wp.yaw
+        << ", asc_stf:" << waypoint_sequence_[seq[i]].ascending_wp_strafe
+        << ", des_stf:" << waypoint_sequence_[seq[i]].descending_wp_strafe
+        << ")";
     if (i != seq.size() - 1) {
       oss << ", ";
     }
   }
 
   oss << "]";
+  RCLCPP_INFO(this->get_logger(), "%s", oss.str().c_str());
+}
+
+void PIDMazeSolver::printWaypointStruct(const PoseOrient &wp,
+                                        const std::string &name) const {
+  std::ostringstream oss;
+  oss << std::boolalpha;
+
+  oss << name << " = { "
+      << "x: " << wp.x << " | y: " << wp.y << " | yaw: " << wp.yaw
+      << " | asc_stf: " << wp.ascending_wp_strafe
+      << " | des_stf: " << wp.descending_wp_strafe << " }";
+
   RCLCPP_INFO(this->get_logger(), "%s", oss.str().c_str());
 }
 

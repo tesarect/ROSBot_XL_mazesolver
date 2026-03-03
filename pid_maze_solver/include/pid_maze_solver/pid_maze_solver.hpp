@@ -7,7 +7,12 @@
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include <Eigen/Dense>
 #include <ostream>
+#include <string>
+#include <tf2/LinearMath/Matrix3x3.h>
+#include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+
+#include <geometry_msgs/msg/transform_stamped.hpp>
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 #include <vector>
@@ -19,17 +24,21 @@ using Laser = sensor_msgs::msg::LaserScan;
 
 class PIDMazeSolver : public rclcpp::Node {
 public:
-  //   PIDMazeSolver(int scene_number);
   PIDMazeSolver(int scene_number,
                 const rclcpp::NodeOptions &options = rclcpp::NodeOptions());
 
-  struct PoseOrient { // ❗ Renamed from `Waypoint`
+  struct PoseOrient {
     float x{0.0f};
     float y{0.0f};
     float yaw{0.0f};
+    bool ascending_wp_strafe{false};
+    bool descending_wp_strafe{false};
 
     PoseOrient() = default;
-    PoseOrient(float x_, float y_, float yaw_) : x(x_), y(y_), yaw(yaw_) {}
+    PoseOrient(float x_, float y_, float yaw_, bool asc = false,
+               bool desc = false)
+        : x(x_), y(y_), yaw(yaw_), ascending_wp_strafe(asc),
+          descending_wp_strafe(desc) {}
   };
 
   enum class State {
@@ -70,6 +79,10 @@ private:
   float yaw_tolerance_;
   float goal_tolerance_;
 
+  //   bool use_sim_time_;
+  std::string base_link_;
+  std::string laser_link_;
+
   bool initial_odom_received_ = false;
   bool relative_mode_ = false;
   PoseOrient current_pose_;
@@ -84,16 +97,18 @@ private:
   std::vector<size_t> final_waypoint_indices_seq_;
   std::vector<float> execution_yaws_;
   std::vector<int> ignore_waypoints_;
-  //   std::vector<long> ignore_waypoints_;
+
+  bool ascending_wp_strafe_;
+  bool descending_wp_strafe_;
 
   int num_waypoints_;
   int scene_number_;
-  //   std::string waypoints_file_path;
   std::string odom_topic_;
   std::string laser_topic_;
 
   tf2_ros::Buffer tf_buffer_;
-tf2_ros::TransformListener tf_listener_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+  //   tf2_ros::TransformListener tf_listener_;
 
   rclcpp::Publisher<Twist>::SharedPtr twist_pub_;
   rclcpp::Subscription<Odom>::SharedPtr odom_sub_;
@@ -114,6 +129,7 @@ tf2_ros::TransformListener tf_listener_;
   double angle_min_;
   int num_rays_;
   bool laser_initialized_{false};
+  double laser_to_base_yaw_ = 0.0;
   double laser_offset_deg_;
   bool laser_flip_{false}; // set true in sim if N↔S and E↔W are swapped
 
@@ -149,8 +165,8 @@ tf2_ros::TransformListener tf_listener_;
   void ApplyOdomCompensation();
   void printWaypointsSequence(const std::vector<size_t> &seq,
                               const std::string &name) const;
-  // std::string prnt_waypoints() const;
   std::string prnt_waypoints(const std::vector<PoseOrient> &vec) const;
+  void printWaypointStruct(const PoseOrient &wp, const std::string &name) const;
   static float NormalizeAngle(float angle);
 };
 

@@ -1,5 +1,10 @@
 maze_solver_node:
   ros__parameters:
+  
+    use_sim_time: true
+    base_link: "base_link"
+    laser_link: "laser"
+
     num_waypoints: -1             # (-1 all) waypoints
     odom_topic: "/odometry/filtered"
     laser_topic: "/scan"
@@ -8,16 +13,26 @@ maze_solver_node:
 
     # PID gain
     # Distance Controller
-    DkP: 0.6
-    DkI: 0.01
-    DkD: 1.1
+    # DkP: 0.6
+    # DkI: 0.01
+    # DkD: 1.1
+    DkP: 1.4
+    DkI: 0.0001
+    DkD: 1.0
     # Turn Controller
-    TkP: 3.0
-    TkI: 0.0001
+    # TkP: 3.0
+    # TkI: 0.0001
+    # TkD: 2.0
+    TkP: 3.5
+    TkI: 0.001
     TkD: 2.0
 
+    min_ang_vel: 0.3
     max_ang_vel: 1.5
+
+    min_lin_vel: 0.2
+    max_lin_vel: 3.0
 
     odom_drift_threshold: 0.05  # 5cm
     yaw_tolerance: 0.01         # rad
-    goal_tolerance: 0.02
+    goal_tolerance: 0.03
