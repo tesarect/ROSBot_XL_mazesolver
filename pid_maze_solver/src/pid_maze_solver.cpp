@@ -10,6 +10,7 @@
 #include "yaml-cpp/yaml.h"
 #include <Eigen/Dense>
 #include <cmath>
+#include <cstddef>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -318,6 +319,8 @@ void PIDMazeSolver::laserCallback(const Laser::SharedPtr msg) {
   }
   flushOpening(num_rays_ - 1);
 
+  initial_laser_received_ = true;
+
   // ── 5. Log openings ─────────────────────────────────────────────────────
   //   for (auto &op : openings_)
   //     RCLCPP_INFO(get_logger(),
@@ -388,10 +391,11 @@ void PIDMazeSolver::LoadWaypointsYaml() {
   switch (scene_number_) {
   case 1:
     final_waypoint_indices_seq_ = fwd_waypoint_indices_seq_;
-
+    fwd_path_flag_ = true;
     break;
   case 2:
     final_waypoint_indices_seq_ = fwd_waypoint_indices_seq_;
+    fwd_path_flag_ = true;
     break;
   case 3:
     if (!fwd_waypoint_indices_seq_.empty()) {
@@ -400,6 +404,7 @@ void PIDMazeSolver::LoadWaypointsYaml() {
                    rev_waypoint_indices_seq_.end());
 
       final_waypoint_indices_seq_ = rev_waypoint_indices_seq_;
+      rev_path_flag_ = true;
       printWaypointsSequence(final_waypoint_indices_seq_, "Reverse");
     } else {
       RCLCPP_ERROR(
@@ -414,6 +419,7 @@ void PIDMazeSolver::LoadWaypointsYaml() {
       std::reverse(rev_waypoint_indices_seq_.begin(),
                    rev_waypoint_indices_seq_.end());
       final_waypoint_indices_seq_ = rev_waypoint_indices_seq_;
+      rev_path_flag_ = true;
       printWaypointsSequence(final_waypoint_indices_seq_, "Reverse");
     } else {
       RCLCPP_ERROR(get_logger(),
@@ -429,6 +435,7 @@ void PIDMazeSolver::LoadWaypointsYaml() {
           std::next(fwd_waypoint_indices_seq_.rbegin()),
           fwd_waypoint_indices_seq_.rend());
       final_waypoint_indices_seq_ = combined_waypoint_indices_seq_;
+      combined_path_flag_ = true;
       printWaypointsSequence(combined_waypoint_indices_seq_, "Combined");
     } else {
       RCLCPP_ERROR(get_logger(),
@@ -444,6 +451,7 @@ void PIDMazeSolver::LoadWaypointsYaml() {
           std::next(fwd_waypoint_indices_seq_.rbegin()),
           fwd_waypoint_indices_seq_.rend());
       final_waypoint_indices_seq_ = combined_waypoint_indices_seq_;
+      combined_path_flag_ = true;
       printWaypointsSequence(combined_waypoint_indices_seq_, "Combined");
     } else {
       RCLCPP_ERROR(get_logger(),
@@ -650,9 +658,12 @@ void PIDMazeSolver::timer_callback() {
 
   // Wait until first real odom reading arrives
   rclcpp::Rate wait_rate(10ms);
-  while (!initial_odom_received_ && rclcpp::ok()) {
+  //   while (!initial_odom_received_ && rclcpp::ok()) {
+  while (!initial_odom_received_ && !initial_laser_received_ && rclcpp::ok()) {
     RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
                          "Waiting for odometry...");
+    RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
+                         "Waiting for Laser...");
     wait_rate.sleep();
   }
 
@@ -666,11 +677,32 @@ void PIDMazeSolver::timer_callback() {
 
   ApplyOdomCompensation();
 
-  current_waypoint_index_ = 0;
+  //   RCLCPP_INFO(get_logger(), " Total final waypoint seq : %zu",
+  //               final_waypoint_indices_seq_.size());
+  total_final_wp_idx_ = final_waypoint_indices_seq_.size() - 1;
+  RCLCPP_INFO(get_logger(), " Total final waypoint seq : %zu",
+              total_final_wp_idx_);
+
   while (rclcpp::ok()) {
     switch (state_) {
     case State::INITIAL:
-      RCLCPP_INFO(get_logger(), " [INITIAL] state 1️⃣⏩");
+      current_waypoint_index_ = 0;
+      next_waypoint_index_ = 0;
+      RCLCPP_INFO(
+          get_logger(),
+          " [INITIAL] state 1️⃣⏩ cur_wp_idx : %zu | nxt_wp_idx : %zu",
+          current_waypoint_index_, next_waypoint_index_);
+      RCLCPP_INFO(get_logger(),
+                  "Dist(m)  N:%.2f  NE:%.2f  E:%.2f  SE:%.2f  S:%.2f  SW:%.2f "
+                  "W:%.2f  NW:%.2f",
+                  dN, dNE, dE, dSE, dS, dSW, dW, dNW);
+      state_ = State::NEXT;
+      break;
+    case State::NEXT:
+      RCLCPP_INFO(
+          get_logger(),
+          " [NEXT] state 2️⃣⏩ cur_wp_idx : %zu | nxt_wp_idx : %zu",
+          current_waypoint_index_, next_waypoint_index_);
       RCLCPP_INFO(get_logger(),
                   "Dist(m)  N:%.2f  NE:%.2f  E:%.2f  SE:%.2f  S:%.2f  SW:%.2f "
                   "W:%.2f  NW:%.2f",
@@ -678,7 +710,10 @@ void PIDMazeSolver::timer_callback() {
       get_next_wp();
       break;
     case State::TURN:
-      RCLCPP_INFO(get_logger(), " [TURN] state 2️⃣⏩");
+      RCLCPP_INFO(
+          get_logger(),
+          " [TURN] state 3️⃣⏩ cur_wp_idx : %zu | nxt_wp_idx : %zu",
+          current_waypoint_index_, next_waypoint_index_);
       RCLCPP_INFO(get_logger(),
                   "Dist(m)  N:%.2f  NE:%.2f  E:%.2f  SE:%.2f  S:%.2f  SW:%.2f "
                   "W:%.2f  NW:%.2f",
@@ -686,7 +721,10 @@ void PIDMazeSolver::timer_callback() {
       face_next_wp();
       break;
     case State::MOVE:
-      RCLCPP_INFO(get_logger(), " [MOVE] state 3️⃣⏩");
+      RCLCPP_INFO(
+          get_logger(),
+          " [MOVE] state 4️⃣⏩ cur_wp_idx : %zu | nxt_wp_idx : %zu",
+          current_waypoint_index_, next_waypoint_index_);
       RCLCPP_INFO(get_logger(),
                   "Dist(m)  N:%.2f  NE:%.2f  E:%.2f  SE:%.2f  S:%.2f  SW:%.2f "
                   "W:%.2f  NW:%.2f",
@@ -695,12 +733,17 @@ void PIDMazeSolver::timer_callback() {
       //   std::exit(EXIT_FAILURE); // ⛔  s t o p
       break;
     case State::FINAL:
-      RCLCPP_INFO(get_logger(), " [FINAL] state 4️⃣⏩");
+      RCLCPP_INFO(
+          get_logger(),
+          " [FINAL] state 5️⃣⏩ cur_wp_idx : %zu | nxt_wp_idx : %zu",
+          current_waypoint_index_, next_waypoint_index_);
       RCLCPP_INFO(get_logger(),
                   "Dist(m)  N:%.2f  NE:%.2f  E:%.2f  SE:%.2f  S:%.2f  SW:%.2f "
                   "W:%.2f  NW:%.2f",
                   dN, dNE, dE, dSE, dS, dSW, dW, dNW);
-      StopRobot();
+      //   StopRobot();
+      publish_vel(0.0, 0.0, 0.0);
+      rclcpp::sleep_for(std::chrono::seconds(1));
       rclcpp::shutdown();
       return;
     }
@@ -708,42 +751,87 @@ void PIDMazeSolver::timer_callback() {
 }
 
 void PIDMazeSolver::get_next_wp() {
-  // Guard — check sequence bounds
-  if (current_waypoint_index_ >= (int)final_waypoint_indices_seq_.size()) {
+  // Guard — check sequence bounds 🚧 END OF FINAL WAYPOINT SEQ Condition
+  if (current_waypoint_index_ >= total_final_wp_idx_) {
+
+    RCLCPP_INFO(get_logger(),
+                " 🚧 🌀 Current wp idx %zu ▶= final_wp_idx size idx=%zu)",
+                current_waypoint_index_, total_final_wp_idx_);
     RCLCPP_INFO(get_logger(), "All waypoints complete.");
-    state_ = State::FINAL;
+    // TODO : state turn. if current wp idx == final_wp_index_seq.size()
+    // Face towards previous wp . and the close the loop by final state.
+    state_ = State::TURN;
+    // state_ = State::FINAL;
     return;
   }
+
+  RCLCPP_INFO(get_logger(),
+              " 🌀 Current wp idx %zu ◀= final_wp_idx size idx=%zu)",
+              current_waypoint_index_, total_final_wp_idx_);
 
   // Current target waypoint
   size_t wp_idx = final_waypoint_indices_seq_[current_waypoint_index_];
   const PoseOrient &current_wp = waypoint_sequence_[wp_idx];
 
   if (isWithinGoalTolerance(current_wp)) {
-    RCLCPP_INFO(get_logger(), "✅ Reached waypoint %d (seq idx=%zu)",
+    RCLCPP_INFO(get_logger(), "✅ Reached waypoint %zu (seq idx=%zu)",
                 current_waypoint_index_, wp_idx);
 
-    // Advance to next
-    // current_waypoint_index_++;
+    // Prepare next waypoint
     next_waypoint_index_ = current_waypoint_index_ + 1;
 
+    //  can we use strafe here to decide if we need TURN and skip it ?
     // Check if more waypoints remain
-    if (current_waypoint_index_ >= (int)final_waypoint_indices_seq_.size()) {
+    if (strafe()) {
+      state_ = State::MOVE;
+    } else if (current_waypoint_index_ >= total_final_wp_idx_) {
       state_ = State::FINAL;
     } else {
       state_ = State::TURN; // face next waypoint
     }
   } else {
+    // TODO: DOUBLE CHECK IF THIS CONTION EVER OCCURS IN BOTH SIM AND REAL
     RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000,
-                         "⚠️ Not at waypoint %d yet — distance off",
+                         "⚠️ Not at waypoint %zu yet — distance off",
                          current_waypoint_index_);
     state_ = State::TURN; // try to navigate there
+    return;               // ⚠️ check if its needed
   }
 }
 
 void PIDMazeSolver::face_next_wp() {
-  size_t target_idx = final_waypoint_indices_seq_[next_waypoint_index_];
-  PoseOrient target = waypoint_sequence_[target_idx];
+
+  bool _face_previous_wp_ = false;
+  size_t target_idx;
+  PoseOrient target;
+  if (current_waypoint_index_ == total_final_wp_idx_) {
+
+    RCLCPP_INFO(get_logger(),
+                " 🚧 🌀 Current wp idx %zu 🟰 final_wp_idx size idx=%zu)",
+                current_waypoint_index_, total_final_wp_idx_);
+    RCLCPP_INFO(get_logger(),
+                "All waypoints complete - facing towards previous WayPoint");
+    current_waypoint_index_--;
+    target_idx = final_waypoint_indices_seq_[current_waypoint_index_];
+    target = waypoint_sequence_[target_idx];
+    printWaypointStruct(target,
+                        "[FINAL TURN] 🚧 ✋ Next Waypoint - should be previous");
+    _face_previous_wp_ = true;
+    // TODO : state turn. if current wp idx == final_wp_index_seq.size()
+    // Face towards previous wp . and the close the loop by final state.
+    // state_ = State::TURN
+    //  return;
+  } else {
+    target_idx = final_waypoint_indices_seq_[next_waypoint_index_];
+    target = waypoint_sequence_[target_idx];
+    printWaypointStruct(target, "[TURN] Next Waypoint");
+  }
+  //   if (face_previous_wp_) {
+  //     size_t target_idx =
+  //     final_waypoint_indices_seq_[current_waypoint_index_--];
+  //   } else {
+  //     size_t target_idx = final_waypoint_indices_seq_[next_waypoint_index_];
+  //   }
 
   // Compute angle from current position toward next waypoint
   float dx = target.x - current_pose_.x;
@@ -793,8 +881,15 @@ void PIDMazeSolver::face_next_wp() {
               current_pose_.yaw, err_yaw);
   // TODO: LOG Facing next wp
 
-  // Transition to MOVE state
+  // Transition to MOVE/FINAL state
+  if (_face_previous_wp_) {
+    state_ = State::FINAL;
+  RCLCPP_INFO(this->get_logger(),
+              "[FINAL TURN] Final state Set 🏁");
+    return;
+  }
   state_ = State::MOVE;
+  return; // ⚠️ check if its needed
 }
 
 void PIDMazeSolver::head_to_next_wp() {
@@ -811,6 +906,7 @@ void PIDMazeSolver::head_to_next_wp() {
   float dy = target.y - current_pose_.y;
 
   float target_dist = std::sqrt(dx * dx + dy * dy);
+  double prev_target_dist = target_dist;
   RCLCPP_INFO(get_logger(),
               "[MOVE] WP[%zu] → target=(%.4f, %.4f) | current=(%.4f, %.4f) | "
               "target_dist=%.4f m",
@@ -818,7 +914,8 @@ void PIDMazeSolver::head_to_next_wp() {
               target_dist);
 
   distance_pid_.reset();
-  rclcpp::Rate rate(100ms);
+  //   rclcpp::Rate rate(100ms);
+  rclcpp::Rate rate(100);
   rclcpp::Time prev_time = this->get_clock()->now();
 
   while (target_dist >= goal_tolerance_ && rclcpp::ok()) {
@@ -837,12 +934,38 @@ void PIDMazeSolver::head_to_next_wp() {
     }
 
     double lin_vel = distance_pid_.compute(target_dist, dt);
+    const double overshoot_margin = 0.05;
 
-    publish_vel(lin_vel, 0.0, 0.0);
+    if (target_dist > prev_target_dist + overshoot_margin && lin_vel > 0.05) {
+      // if (target_dist > prev_target_dist + overshoot_margin) {
+      RCLCPP_WARN(get_logger(), "[MOVE] 🚨 🚨 🚨 Overshoot detected. Stopping.");
+      publish_vel(0.0, 0.0, 0.0);
+      rclcpp::sleep_for(std::chrono::seconds(1));
+      break;
+    }
+    prev_target_dist = target_dist;
 
-    RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 1000,
-                         "[MOVE] target_dist=%.4f m | lin_vel=%.3f",
-                         target_dist, lin_vel);
+    if (strafe()) {
+      float robot_yaw = current_pose_.yaw;
+      float local_x = dx * std::cos(robot_yaw) + dy * std::sin(robot_yaw);
+      float local_y = -dx * std::sin(robot_yaw) + dy * std::cos(robot_yaw);
+      float norm = std::sqrt(local_x * local_x + local_y * local_y);
+
+      double vx = (norm > 0.001f) ? lin_vel * (local_x / norm) : 0.0;
+      double vy = (norm > 0.001f) ? lin_vel * (local_y / norm) : 0.0;
+
+      publish_vel(vx, vy, 0.0); // pure strafe, no rotation
+
+      RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 1000,
+                           "[STRAFE-MOVE] target_dist=%.3f | vx=%.3f vy=%.3f",
+                           target_dist, vx, vy);
+    } else {
+      publish_vel(lin_vel, 0.0, 0.0);
+
+      RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 1000,
+                           "[MOVE] target_dist=%.4f m | lin_vel=%.3f",
+                           target_dist, lin_vel);
+    }
 
     rate.sleep();
   }
@@ -856,7 +979,37 @@ void PIDMazeSolver::head_to_next_wp() {
 
   // Advance waypoint index and go back to INITIAL to check arrival
   current_waypoint_index_ = next_waypoint_index_;
-  state_ = State::INITIAL;
+  // state_ = State::INITIAL;
+  state_ = State::NEXT;
+  return; // ⚠️ check if its needed
+}
+
+// change the function name to prep if any other functionality is added
+bool PIDMazeSolver::strafe() const {
+  bool strafe_ = false;
+  if (fwd_path_flag_) {
+    strafe_ =
+        waypoint_sequence_[final_waypoint_indices_seq_[current_waypoint_index_]]
+            .ascending_wp_strafe;
+  } else if (rev_path_flag_) {
+    strafe_ =
+        waypoint_sequence_[final_waypoint_indices_seq_[current_waypoint_index_]]
+            .descending_wp_strafe;
+  } else {
+    size_t mid = final_waypoint_indices_seq_.size() / 2;
+    if (current_waypoint_index_ > mid) {
+      // Returning back path
+      strafe_ = waypoint_sequence_
+                    [final_waypoint_indices_seq_[current_waypoint_index_]]
+                        .descending_wp_strafe;
+    } else {
+      // Heading to Finish point (forward path)
+      strafe_ = waypoint_sequence_
+                    [final_waypoint_indices_seq_[current_waypoint_index_]]
+                        .ascending_wp_strafe;
+    }
+  }
+  return strafe_;
 }
 
 void PIDMazeSolver::publish_vel(double vx, double vy, double wz) const {

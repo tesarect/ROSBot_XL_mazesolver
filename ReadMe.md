@@ -69,3 +69,15 @@ PID can be passed in as arguments too, similar to `distance_controller`. Simulat
 $ ros2 run turn_controller turn_controller 1 
 $ ros2 run turn_controller turn_controller 2 --ros-args -p waypoint_sequence:="[14,3,9]" -p kP:=3.4 -p kI:=0.0001 -p kD:=2.2
 ```
+
+### State Change
+```mermaid
+	[*] --> INITIAL
+	INITIAL --> NEXT
+	NEXT --> TURN : strafe Off
+	TURN --> MOVE
+	MOVE --> NEXT : next waypoint
+	NEXT --> MOVE : strafe On
+	MOVE --> FINAL
+	FINAL --> [*]
+```

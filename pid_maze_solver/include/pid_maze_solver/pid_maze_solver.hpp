@@ -6,6 +6,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include <Eigen/Dense>
+#include <cstddef>
 #include <ostream>
 #include <string>
 #include <tf2/LinearMath/Matrix3x3.h>
@@ -43,6 +44,7 @@ public:
 
   enum class State {
     INITIAL, // Home or Starting position
+    NEXT,    // prepare for next waypoint
     TURN,    // Turn Towards next waypoint
     MOVE,    // Head Towards next waypoint
     FINAL    // Final position
@@ -64,6 +66,7 @@ private:
 
   LaserDirections laser_dirs_;
   Laser::SharedPtr last_scan_;
+  bool initial_laser_received_{false};
 
   float TkP_;
   float TkI_;
@@ -83,11 +86,18 @@ private:
   std::string base_link_;
   std::string laser_link_;
 
-  bool initial_odom_received_ = false;
+  bool initial_odom_received_{false};
   bool relative_mode_ = false;
   PoseOrient current_pose_;
-  int current_waypoint_index_;
-  int next_waypoint_index_;
+  //   int current_waypoint_index_;
+  //   int next_waypoint_index_;
+  size_t current_waypoint_index_;
+  size_t next_waypoint_index_;
+  size_t total_final_wp_idx_;
+  bool fwd_path_flag_{false};
+  bool rev_path_flag_{false};
+  bool combined_path_flag_{false};
+
   std::vector<PoseOrient> all_waypoints_; // original read from wapoint yaml
   std::vector<PoseOrient>
       waypoint_sequence_; // copy of all_waypoints_ with OdomCompensation
@@ -98,6 +108,7 @@ private:
   std::vector<float> execution_yaws_;
   std::vector<int> ignore_waypoints_;
 
+  // bool strafe_{false};
   bool ascending_wp_strafe_;
   bool descending_wp_strafe_;
 
@@ -150,23 +161,26 @@ private:
   void face_next_wp();
   void head_to_next_wp();
   bool isWithinGoalTolerance(const PoseOrient &target) const;
+  bool strafe() const;
 
   void LoadParameters();
   void LoadWaypointsYaml();
-  void BuildExecutionYaws();
-  LaserDirections compute_laser_indices(const Laser &scan);
-  void laserCallback_old(const Laser::SharedPtr msg);
-  void laserCallback(const Laser::SharedPtr msg);
-  void timer_callback();
-  void StopRobot();
-  void publish_vel(double vx, double vy, double wz) const;
   void load_all_waypoints(const std::string &file_name);
-  void waypoint_selection();
-  void ApplyOdomCompensation();
   void printWaypointsSequence(const std::vector<size_t> &seq,
                               const std::string &name) const;
   std::string prnt_waypoints(const std::vector<PoseOrient> &vec) const;
   void printWaypointStruct(const PoseOrient &wp, const std::string &name) const;
+
+  void laserCallback_old(const Laser::SharedPtr msg);
+  void laserCallback(const Laser::SharedPtr msg);
+  void timer_callback();
+  void waypoint_selection();
+  void ApplyOdomCompensation();
+
+  void publish_vel(double vx, double vy, double wz) const;
+  void StopRobot();
+  void BuildExecutionYaws();
+  LaserDirections compute_laser_indices(const Laser &scan);
   static float NormalizeAngle(float angle);
 };
 
