@@ -9,6 +9,7 @@
 #include "rclcpp/utilities.hpp"
 #include "yaml-cpp/yaml.h"
 #include <Eigen/Dense>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdlib>
@@ -743,7 +744,7 @@ void PIDMazeSolver::timer_callback() {
                   dN, dNE, dE, dSE, dS, dSW, dW, dNW);
       //   StopRobot();
       publish_vel(0.0, 0.0, 0.0);
-      rclcpp::sleep_for(std::chrono::seconds(1));
+      rclcpp::sleep_for(std::chrono::milliseconds(500));
       rclcpp::shutdown();
       return;
     }
@@ -772,6 +773,7 @@ void PIDMazeSolver::get_next_wp() {
   // Current target waypoint
   size_t wp_idx = final_waypoint_indices_seq_[current_waypoint_index_];
   const PoseOrient &current_wp = waypoint_sequence_[wp_idx];
+  printWaypointStruct(current_wp, std::to_string(wp_idx) + "th 🐾");
 
   if (isWithinGoalTolerance(current_wp)) {
     RCLCPP_INFO(get_logger(), "✅ Reached waypoint %zu (seq idx=%zu)",
@@ -847,7 +849,8 @@ void PIDMazeSolver::face_next_wp() {
   turn_pid_.reset();
   float err_yaw = NormalizeAngle(target_yaw - current_pose_.yaw);
 
-  rclcpp::Rate rate(100ms);
+//   rclcpp::Rate rate(100ms);
+  rclcpp::Rate rate(100);
   rclcpp::Time prev_time = this->get_clock()->now();
   geometry_msgs::msg::Twist cmd;
 
@@ -875,7 +878,7 @@ void PIDMazeSolver::face_next_wp() {
 
   //   StopRobot();
   publish_vel(0.0, 0.0, 0.0);
-  rclcpp::sleep_for(std::chrono::seconds(1));
+  rclcpp::sleep_for(std::chrono::milliseconds(500));
   RCLCPP_INFO(this->get_logger(),
               "[TURN] Done | final_yaw=%.4f rad | err=%.4f rad",
               current_pose_.yaw, err_yaw);
@@ -884,8 +887,7 @@ void PIDMazeSolver::face_next_wp() {
   // Transition to MOVE/FINAL state
   if (_face_previous_wp_) {
     state_ = State::FINAL;
-  RCLCPP_INFO(this->get_logger(),
-              "[FINAL TURN] Final state Set 🏁");
+    RCLCPP_INFO(this->get_logger(), "[FINAL TURN] Final state Set 🏁");
     return;
   }
   state_ = State::MOVE;
@@ -972,7 +974,7 @@ void PIDMazeSolver::head_to_next_wp() {
 
   //   StopRobot();
   publish_vel(0.0, 0.0, 0.0);
-  rclcpp::sleep_for(std::chrono::seconds(1));
+  rclcpp::sleep_for(std::chrono::milliseconds(500));
   RCLCPP_INFO(get_logger(),
               "[MOVE] Done | final target_dist=%.4f m | pos=(%.4f, %.4f)",
               target_dist, current_pose_.x, current_pose_.y);
@@ -1089,12 +1091,16 @@ int main(int argc, char **argv) {
 
   std::string config_file;
 
-  if (scene_number == 1)
+  if (scene_number == 1 || scene_number == 3 || scene_number == 5) {
     config_file = "/home/user/ros2_ws/src/ROSBot_XL_mazesolver/pid_maze_solver/"
                   "config/sim.yaml";
-  else
+  } else if (scene_number == 2 || scene_number == 4 || scene_number == 6) {
     config_file = "/home/user/ros2_ws/src/ROSBot_XL_mazesolver/pid_maze_solver/"
                   "config/real.yaml";
+  } else {
+    RCLCPP_ERROR(rclcpp::get_logger("pid_maze_solver"),
+                 "Invalid scene number: %d. Must be 1–6.", scene_number);
+  }
   rclcpp::NodeOptions options;
   options.arguments({"--ros-args", "--params-file", config_file});
   auto node = std::make_shared<PIDMazeSolver>(scene_number, options);
