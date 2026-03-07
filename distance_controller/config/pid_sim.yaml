@@ -1,0 +1,21 @@
+# ros2 run distance_controller distance_controller --ros-args --params-file $(ros2 pkg prefix distance_controller)/share/distance_controller/config/pid_sim.yaml
+
+distance_controller:
+  ros__parameters:
+    max_v: 0.6
+    max_w: 1.2
+
+    pid_x: 
+      kp: 1.2
+      ki: 0.01
+      kd: 0.05
+
+    pid_y:
+      kp: 1.2
+      ki: 0.01
+      kd: 0.05
+
+    pid_yaw:
+      kp: 1.5
+      ki: 0.0
+      kd: 0.1

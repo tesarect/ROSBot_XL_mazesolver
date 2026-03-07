@@ -14,6 +14,11 @@ find_package(nav_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(tf2 REQUIRED)
 
+find_package(sensor_msgs REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
+find_package(yaml-cpp REQUIRED)
+
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -28,14 +33,32 @@ if(BUILD_TESTING)
 endif()
 
 add_executable(distance_controller src/distance_controller.cpp)
-ament_target_dependencies(distance_controller rclcpp geometry_msgs nav_msgs tf2)
+ament_target_dependencies(distance_controller 
+  rclcpp
+  geometry_msgs 
+  nav_msgs 
+  tf2
+  yaml-cpp)
+  target_link_libraries(distance_controller yaml-cpp)
 
 # Eigen is header-only so no target_link_libraries needed for it
 target_include_directories(distance_controller PUBLIC
   ${EIGEN3_INCLUDE_DIRS})
 
+
+add_executable(laserscn src/laserscn.cpp)
+ament_target_dependencies(laserscn
+  rclcpp
+  sensor_msgs
+  geometry_msgs
+  tf2
+  tf2_ros
+  tf2_geometry_msgs
+)
+
 install(TARGETS
-	distance_controller
+    distance_controller
+	laserscn
 	DESTINATION lib/${PROJECT_NAME}
 )
 

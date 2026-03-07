@@ -6,7 +6,7 @@ import argparse
 import json
 import os
 
-OUTPUT_FILE = "waypoints.json"
+OUTPUT_FILE = "waypoints_2.0.json"
 
 TOPICS = [
     ("/odometry/filtered", "pose.pose"),
