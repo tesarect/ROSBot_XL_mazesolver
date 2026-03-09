@@ -8,7 +8,6 @@ maze_solver_node:
     num_waypoints: -1             # (-1 all) waypoints
     odom_topic: "/odometry/filtered"
     laser_topic: "/scan"
-    laser_offset_deg: 180.0
 
     # PID gain
     # Distance Controller
@@ -20,12 +19,19 @@ maze_solver_node:
     TkI: 0.0001
     TkD: 2.8
 
-    min_ang_vel: 0.3
     max_ang_vel: 1.5
-
-    min_lin_vel: 0.2
     max_lin_vel: 3.0
 
-    odom_drift_threshold: 0.05  # 5cm
     yaw_tolerance: 0.01         # rad
     goal_tolerance: 0.03
+
+    # front_stop_thresh: 0.25
+    front_stop_thresh: 0.20
+    wall_nudge_thresh: 0.20
+    nudge_gain: 0.05
+    front_corr_thresh: 0.16
+    side_corr_thresh: 0.20
+    tilt_correction: false
+    tilt_thresh: 0.015
+    tilt_gain: 1.0
+    correction_timeout: 200

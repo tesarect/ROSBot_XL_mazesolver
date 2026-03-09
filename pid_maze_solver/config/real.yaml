@@ -21,12 +21,17 @@ maze_solver_node:
     TkI: 0.005
     TkD: 0.5
 
-    min_ang_vel: 0.2
-    max_ang_vel: 0.5
-
-    min_lin_vel: 0.2
+    max_ang_vel: 0.2
     max_lin_vel: 0.5
 
-    odom_drift_threshold: 0.05  # 5cm
     yaw_tolerance: 0.01         # rad
     goal_tolerance: 0.05
+
+    front_stop_thresh: 0.25
+    wall_nudge_thresh: 0.20
+    nudge_gain: 0.05
+    front_corr_thresh: 0.16
+    side_corr_thresh: 0.20
+    tilt_thresh: 0.015
+    tilt_gain: 1.0
+    correction_timeout: 200
