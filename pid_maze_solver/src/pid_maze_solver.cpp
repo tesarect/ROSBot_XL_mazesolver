@@ -18,7 +18,8 @@
 
 using namespace std::chrono_literals;
 
-// delta distance + odom correction + parallel wall correction at goal (using laser) + heading hold
+// delta distance + odom correction + parallel wall correction at goal (using
+// laser) + heading hold
 
 class PIDMazeSolver : public rclcpp::Node {
 public:
@@ -68,9 +69,11 @@ public:
     corner_thresh_ = this->declare_parameter<float>("corner_thresh", 0.12f);
 
     // ── Heading hold during MOVE ───────────────────────────────────────────
-    // Adds a wz correction during transit to hold heading at start_yaw_+goal.theta
+    // Adds a wz correction during transit to hold heading at
+    // start_yaw_+goal.theta
     heading_hold_kP_ = this->declare_parameter<float>("heading_hold_kP", 1.5f);
-    heading_hold_max_wz_ = this->declare_parameter<float>("heading_hold_max_wz", 0.3f);
+    heading_hold_max_wz_ =
+        this->declare_parameter<float>("heading_hold_max_wz", 0.3f);
 
     // ── PID setup ──────────────────────────────────────────────────────────
     RCLCPP_INFO(
@@ -124,10 +127,7 @@ public:
     timer_ = this->create_wall_timer(
         100ms, std::bind(&PIDMazeSolver::controlLoop, this));
 
-    RCLCPP_INFO(
-        get_logger(),
-        "PIDMazeSolver ready. Scene=%d",
-        scene_number_);
+    RCLCPP_INFO(get_logger(), "PIDMazeSolver ready. Scene=%d", scene_number_);
   }
 
 private:
@@ -202,8 +202,8 @@ private:
   float corner_thresh_;     // max deviation of E from straight-wall prediction
 
   // ── Heading hold during MOVE ───────────────────────────────────────────────
-  float heading_hold_kP_;      // P gain for in-transit heading correction
-  float heading_hold_max_wz_;  // max wz correction during MOVE
+  float heading_hold_kP_;     // P gain for in-transit heading correction
+  float heading_hold_max_wz_; // max wz correction during MOVE
 
   // ── Topics / frames ────────────────────────────────────────────────────────
   std::string odom_topic_, laser_topic_, base_link_;
@@ -528,12 +528,13 @@ private:
       // Hold heading at the target yaw (start_yaw_ + goal.theta) during MOVE.
       // Counters yaw drift without waiting for the next goal boundary.
       float target_yaw = normalizeAngle(start_yaw_ + goal.theta);
-      float yaw_err    = normalizeAngle(target_yaw - current_yaw_);
-      float wz_hold    = heading_hold_kP_ * yaw_err;
-      wz_hold = std::clamp(wz_hold, -heading_hold_max_wz_, heading_hold_max_wz_);
+      float yaw_err = normalizeAngle(target_yaw - current_yaw_);
+      float wz_hold = heading_hold_kP_ * yaw_err;
+      wz_hold =
+          std::clamp(wz_hold, -heading_hold_max_wz_, heading_hold_max_wz_);
       RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 500,
-                           "[MOVE] heading_hold yaw_err=%.4f wz=%.3f",
-                           yaw_err, wz_hold);
+                           "[MOVE] heading_hold yaw_err=%.4f wz=%.3f", yaw_err,
+                           wz_hold);
 
       publish(vx, vy, wz_hold);
 
@@ -643,7 +644,7 @@ private:
   void align_parallel_to_wall() {
     // nee_(67.5°)/see_(112.5°) are on the LEFT side  (positive Y in ROS)
     // nww_(-67.5°)/sww_(-112.5°) are on the RIGHT side (negative Y in ROS)
-    float avg_left  = (nee_ + see_) / 2.0f;
+    float avg_left = (nee_ + see_) / 2.0f;
     float avg_right = (nww_ + sww_) / 2.0f;
 
     // Both walls too far — open bay, nothing to align to
@@ -661,18 +662,17 @@ private:
       return std::fabs(front_ray - back_ray) < corner_thresh_;
     };
 
-    bool left_straight  = isStraightWall(nee_, see_);
+    bool left_straight = isStraightWall(nee_, see_);
     bool right_straight = isStraightWall(nww_, sww_);
 
-    RCLCPP_INFO(get_logger(),
-                "[PARALLEL] R_avg=%.3f L_avg=%.3f | "
-                "straight R=%d L=%d | "
-                "diff R=%.3f(nww=%.3f sww=%.3f) L=%.3f(nee=%.3f see=%.3f) thresh=%.3f",
-                avg_right, avg_left,
-                right_straight, left_straight,
-                std::fabs(nww_ - sww_), nww_, sww_,
-                std::fabs(nee_ - see_), nee_, see_,
-                corner_thresh_);
+    RCLCPP_INFO(
+        get_logger(),
+        "[PARALLEL] R_avg=%.3f L_avg=%.3f | "
+        "straight R=%d L=%d | "
+        "diff R=%.3f(nww=%.3f sww=%.3f) L=%.3f(nee=%.3f see=%.3f) thresh=%.3f",
+        avg_right, avg_left, right_straight, left_straight,
+        std::fabs(nww_ - sww_), nww_, sww_, std::fabs(nee_ - see_), nee_, see_,
+        corner_thresh_);
 
     bool use_right = false;
     if (right_straight && left_straight)

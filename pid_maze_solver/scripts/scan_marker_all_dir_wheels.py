@@ -101,7 +101,6 @@ class ScanRangesTF(Node):
             laser_rad += 2 * math.pi
 
         idx = round((laser_rad - self.angle_min) / self.angle_inc)
-
         idx = max(0, min(self.num_rays - 1, idx))
 
         return idx
@@ -219,11 +218,17 @@ class ScanRangesTF(Node):
             text.pose.position.y = y
             text.pose.position.z = 0.15
 
-            text.scale.z = 0.08
+            text.scale.z = 0.05
 
+
+            if name.startswith("C"):
+                text.color.r = 1.0
+                text.color.g = 0.5
+                text.color.b = 1.0
+            else:
+                text.color.r = 1.0
+                text.color.g = 1.0
             text.color.a = 1.0
-            text.color.r = 1.0
-            text.color.g = 1.0
 
             text.text = f"{name}:{dist:.2f}"
 

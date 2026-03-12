@@ -19,7 +19,8 @@
 using namespace std::chrono_literals;
 
 // delta distance + odom correction + parallel wall correction at goal (using
-// laser) + heading hold + Corner detection nudge + back nudge
+// laser) + heading hold + Corner detection nudge + back nudge + advance after front obstacle
+// with rotational yaw correction
 
 class PIDMazeSolver : public rclcpp::Node {
 public:
@@ -50,10 +51,8 @@ public:
     wall_nudge_thresh_ =
         this->declare_parameter<float>("wall_nudge_thresh", 0.20f);
     nudge_gain_ = this->declare_parameter<float>("nudge_gain", 0.05f);
-    back_nudge_thresh_ =
-        this->declare_parameter<float>("back_nudge_thresh", 0.20f);
-    wheel_corner_thresh_ =
-        this->declare_parameter<float>("wheel_corner_thresh", 0.30f);
+    back_nudge_thresh_   = this->declare_parameter<float>("back_nudge_thresh",   0.20f);
+    wheel_corner_thresh_ = this->declare_parameter<float>("wheel_corner_thresh", 0.30f);
     front_corr_thresh_ =
         this->declare_parameter<float>("front_corr_thresh", 0.16f);
     early_stop_dist_ = this->declare_parameter<float>("early_stop_dist", 0.15f);
@@ -73,11 +72,9 @@ public:
     corner_thresh_ = this->declare_parameter<float>("corner_thresh", 0.12f);
 
     // ── Heading hold during MOVE ───────────────────────────────────────────
-    // Adds a wz correction during transit to hold heading at
-    // start_yaw_+goal.theta
+    // Adds a wz correction during transit to hold heading at start_yaw_+goal.theta
     heading_hold_kP_ = this->declare_parameter<float>("heading_hold_kP", 1.5f);
-    heading_hold_max_wz_ =
-        this->declare_parameter<float>("heading_hold_max_wz", 0.3f);
+    heading_hold_max_wz_ = this->declare_parameter<float>("heading_hold_max_wz", 0.3f);
 
     // ── PID setup ──────────────────────────────────────────────────────────
     RCLCPP_INFO(
@@ -131,7 +128,10 @@ public:
     timer_ = this->create_wall_timer(
         100ms, std::bind(&PIDMazeSolver::controlLoop, this));
 
-    RCLCPP_INFO(get_logger(), "PIDMazeSolver ready. Scene=%d", scene_number_);
+    RCLCPP_INFO(
+        get_logger(),
+        "PIDMazeSolver ready. Scene=%d",
+        scene_number_);
   }
 
 private:
@@ -154,6 +154,11 @@ private:
   bool initialized_ = false;
   float current_x_ = 0.0f, current_y_ = 0.0f, current_yaw_ = 0.0f;
   float start_x_ = 0.0f, start_y_ = 0.0f, start_yaw_ = 0.0f;
+  // Yaw offset — captured once on first control loop tick.
+  // Removes whatever yaw odom reports at startup so all heading math
+  // treats the robot's initial orientation as yaw=0.
+  float yaw_offset_     = 0.0f;
+  bool  yaw_offset_set_ = false;
 
   // ── PID ────────────────────────────────────────────────────────────────────
   maze_solver::PID turn_pid_;
@@ -171,8 +176,8 @@ private:
   float front_stop_thresh_;
   float early_stop_dist_;
   float wall_nudge_thresh_, nudge_gain_;
-  float back_nudge_thresh_;   // if back_ < this, push forward
-  float wheel_corner_thresh_; // if any wheel zone < this, nudge away
+  float back_nudge_thresh_;    // if back_ < this, push forward
+  float wheel_corner_thresh_;  // if any wheel zone < this, nudge away
   float front_corr_thresh_, side_corr_thresh_;
   bool tilt_correction_;
   float tilt_thresh_, tilt_gain_;
@@ -189,12 +194,12 @@ private:
   float nww_ = 9.9f, sww_ = 9.9f;
   // Body corner proximity — averaged over ±20° band around each corner angle
   // CFL=+35°  CFR=-35°  CBL=+145°  CBR=-145°  (manually calculated from URDF)
-  float corner_fl_ = 9.9f; // front-left  corner zone  [15°,  55°]
-  float corner_fr_ = 9.9f; // front-right corner zone  [-15°,-55°]
-  float corner_bl_ = 9.9f; // back-left   corner zone  [125°, 165°]
-  float corner_br_ = 9.9f; // back-right  corner zone  [-125°,-165°]
+  float corner_fl_ = 9.9f;  // front-left  corner zone  [15°,  55°]
+  float corner_fr_ = 9.9f;  // front-right corner zone  [-15°,-55°]
+  float corner_bl_ = 9.9f;  // back-left   corner zone  [125°, 165°]
+  float corner_br_ = 9.9f;  // back-right  corner zone  [-125°,-165°]
   // Back arc — full rear sweep from CBL to CBR through 180°
-  float back_arc_ = 9.9f; // avg of [124.6° … 180° … -124.6°]
+  float back_arc_  = 9.9f;  // avg of [124.6° … 180° … -124.6°]
 
   // ── Laser init ─────────────────────────────────────────────────────────────
   bool laser_init_ = false;
@@ -219,8 +224,8 @@ private:
   float corner_thresh_;     // max deviation of E from straight-wall prediction
 
   // ── Heading hold during MOVE ───────────────────────────────────────────────
-  float heading_hold_kP_;     // P gain for in-transit heading correction
-  float heading_hold_max_wz_; // max wz correction during MOVE
+  float heading_hold_kP_;      // P gain for in-transit heading correction
+  float heading_hold_max_wz_;  // max wz correction during MOVE
 
   // ── Topics / frames ────────────────────────────────────────────────────────
   std::string odom_topic_, laser_topic_, base_link_;
@@ -344,12 +349,12 @@ private:
 
     // Body corner indices — CFL=35° CFR=-35° CBL=145° CBR=-145°
     // avgWide() uses ±20° band around each centre
-    idx_cfl_ = toIdx(35.0);
+    idx_cfl_ = toIdx( 35.0);
     idx_cfr_ = toIdx(-35.0);
-    idx_cbl_ = toIdx(145.0);
+    idx_cbl_ = toIdx( 145.0);
     idx_cbr_ = toIdx(-145.0);
     // Back arc: full rear sweep CBL(145°) → 180° → CBR(-145°)
-    idx_back_arc_l_ = toIdx(145.0);
+    idx_back_arc_l_ = toIdx( 145.0);
     idx_back_arc_r_ = toIdx(-145.0);
 
     laser_init_ = true;
@@ -425,13 +430,11 @@ private:
     corner_bl_ = avgWide(idx_cbl_, corner_band);
     corner_br_ = avgWide(idx_cbr_, corner_band);
 
-    // Back arc — full sweep from idx_back_arc_l_ through 180° to
-    // idx_back_arc_r_ Since CBL(145°) > CBR(-145°) in index space (wraps
-    // through 180°), we average from idx_back_arc_l_ to num_rays_-1, then 0 to
-    // idx_back_arc_r_
+    // Back arc — full sweep from idx_back_arc_l_ through 180° to idx_back_arc_r_
+    // Since CBL(145°) > CBR(-145°) in index space (wraps through 180°),
+    // we average from idx_back_arc_l_ to num_rays_-1, then 0 to idx_back_arc_r_
     {
-      float sum = 0.0f;
-      int cnt = 0;
+      float sum = 0.0f; int cnt = 0;
       auto accum = [&](int lo, int hi) {
         for (int i = lo; i <= hi; i++)
           if (std::isfinite(r[i]) && r[i] > 0.01f && r[i] < rmax)
@@ -457,6 +460,21 @@ private:
     if (!initialized_ || !laser_init_)
       return;
 
+    // ── Capture startup yaw offset once ───────────────────────────────────
+    // Normalises all heading math so the robot's initial orientation = yaw 0.
+    // Without this, a non-zero odom yaw at startup rotates the world→robot
+    // frame transform, causing the robot to move sideways or backwards.
+    if (!yaw_offset_set_) {
+      yaw_offset_     = current_yaw_;
+      yaw_offset_set_ = true;
+      RCLCPP_INFO(get_logger(),
+                  "Yaw offset captured: %.4f rad (%.1f°)",
+                  yaw_offset_, yaw_offset_ * 180.0f / M_PI);
+    }
+
+    // corrected_yaw is used everywhere instead of current_yaw_
+    float corrected_yaw = normalizeAngle(current_yaw_ - yaw_offset_);
+
     // All done
     if (goal_idx_ >= goals_.size()) {
       publish(0, 0, 0);
@@ -470,9 +488,9 @@ private:
 
     // ── Activate new goal ──────────────────────────────────────────────────
     if (!goal_active_) {
-      start_x_ = current_x_;
-      start_y_ = current_y_;
-      start_yaw_ = current_yaw_;
+      start_x_   = current_x_;
+      start_y_   = current_y_;
+      start_yaw_ = corrected_yaw;   // store corrected, not raw
       goal_active_ = true;
       phase_ = Phase::TURNING;
       turn_pid_.reset();
@@ -495,7 +513,7 @@ private:
       }
 
       float target_yaw = normalizeAngle(start_yaw_ + goal.theta);
-      float err_yaw = normalizeAngle(target_yaw - current_yaw_);
+      float err_yaw    = normalizeAngle(target_yaw - corrected_yaw);
 
       if (std::fabs(err_yaw) < yaw_tolerance_) {
         publish(0, 0, 0);
@@ -532,7 +550,10 @@ private:
 
       // ── Front obstacle early stop ──────────────────────────────────────
       // STOP EARLY WHEN WALL DETECTED, AND CONSIDER THAT AS GOAL REACHED
-      if (front_ <= front_stop_thresh_) {
+      // Skip front check for pure/dominant strafe goals — front wall is
+      // irrelevant when the robot moves sideways (dy dominant over dx).
+      bool moving_forward = std::fabs(goal.x) > std::fabs(goal.y) * 0.5f;
+      if (moving_forward && front_ <= front_stop_thresh_) {
         if (dist < early_stop_dist_) {
           // close enough — accept wall as goal reached
           publish(0, 0, 0);
@@ -577,18 +598,13 @@ private:
       ctrl_y = std::clamp(ctrl_y, -max_lin_vel_, max_lin_vel_);
 
       // Rotate world-frame {ctrl_x, ctrl_y} → robot-frame {vx, vy}
-      float cos_y = std::cos(current_yaw_);
-      float sin_y = std::sin(current_yaw_);
+      float cos_y = std::cos(corrected_yaw);
+      float sin_y = std::sin(corrected_yaw);
       float vx = cos_y * ctrl_x + sin_y * ctrl_y;
       float vy = -sin_y * ctrl_x + cos_y * ctrl_y;
 
-      // ── Minimum vx to overcome motor deadband ─────────────────────────
-      float min_vx = 0.08f;
-      if (dist > goal_tolerance_ && std::fabs(vx) < min_vx &&
-          std::fabs(ctrl_x) > 0.001f)
-        vx = std::copysign(min_vx, vx);
-
       // ── Wall nudge ────────────────────────────────────────────────────
+      // Side walls
       if (left_ < wall_nudge_thresh_) {
         vy -= nudge_gain_;
         RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000,
@@ -616,26 +632,22 @@ private:
         float cn = nudge_gain_ * 0.5f;
         float wct = wheel_corner_thresh_;
         if (corner_fl_ < wct) {
-          vx -= cn;
-          vy -= cn;
+          vx -= cn; vy -= cn;
           RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000,
                                "[MOVE] CFL corner %.3f", corner_fl_);
         }
         if (corner_fr_ < wct) {
-          vx -= cn;
-          vy += cn;
+          vx -= cn; vy += cn;
           RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000,
                                "[MOVE] CFR corner %.3f", corner_fr_);
         }
         if (corner_bl_ < wct) {
-          vx += cn;
-          vy -= cn;
+          vx += cn; vy -= cn;
           RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000,
                                "[MOVE] CBL corner %.3f", corner_bl_);
         }
         if (corner_br_ < wct) {
-          vx += cn;
-          vy += cn;
+          vx += cn; vy += cn;
           RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000,
                                "[MOVE] CBR corner %.3f", corner_br_);
         }
@@ -645,13 +657,12 @@ private:
       // Hold heading at the target yaw (start_yaw_ + goal.theta) during MOVE.
       // Counters yaw drift without waiting for the next goal boundary.
       float target_yaw = normalizeAngle(start_yaw_ + goal.theta);
-      float yaw_err = normalizeAngle(target_yaw - current_yaw_);
-      float wz_hold = heading_hold_kP_ * yaw_err;
-      wz_hold =
-          std::clamp(wz_hold, -heading_hold_max_wz_, heading_hold_max_wz_);
+      float yaw_err    = normalizeAngle(target_yaw - corrected_yaw);
+      float wz_hold    = heading_hold_kP_ * yaw_err;
+      wz_hold = std::clamp(wz_hold, -heading_hold_max_wz_, heading_hold_max_wz_);
       RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 500,
-                           "[MOVE] heading_hold yaw_err=%.4f wz=%.3f", yaw_err,
-                           wz_hold);
+                           "[MOVE] heading_hold yaw_err=%.4f wz=%.3f",
+                           yaw_err, wz_hold);
 
       publish(vx, vy, wz_hold);
 
@@ -761,7 +772,7 @@ private:
   void align_parallel_to_wall() {
     // nee_(67.5°)/see_(112.5°) are on the LEFT side  (positive Y in ROS)
     // nww_(-67.5°)/sww_(-112.5°) are on the RIGHT side (negative Y in ROS)
-    float avg_left = (nee_ + see_) / 2.0f;
+    float avg_left  = (nee_ + see_) / 2.0f;
     float avg_right = (nww_ + sww_) / 2.0f;
 
     // Both walls too far — open bay, nothing to align to
@@ -779,17 +790,18 @@ private:
       return std::fabs(front_ray - back_ray) < corner_thresh_;
     };
 
-    bool left_straight = isStraightWall(nee_, see_);
+    bool left_straight  = isStraightWall(nee_, see_);
     bool right_straight = isStraightWall(nww_, sww_);
 
-    RCLCPP_INFO(
-        get_logger(),
-        "[PARALLEL] R_avg=%.3f L_avg=%.3f | "
-        "straight R=%d L=%d | "
-        "diff R=%.3f(nww=%.3f sww=%.3f) L=%.3f(nee=%.3f see=%.3f) thresh=%.3f",
-        avg_right, avg_left, right_straight, left_straight,
-        std::fabs(nww_ - sww_), nww_, sww_, std::fabs(nee_ - see_), nee_, see_,
-        corner_thresh_);
+    RCLCPP_INFO(get_logger(),
+                "[PARALLEL] R_avg=%.3f L_avg=%.3f | "
+                "straight R=%d L=%d | "
+                "diff R=%.3f(nww=%.3f sww=%.3f) L=%.3f(nee=%.3f see=%.3f) thresh=%.3f",
+                avg_right, avg_left,
+                right_straight, left_straight,
+                std::fabs(nww_ - sww_), nww_, sww_,
+                std::fabs(nee_ - see_), nee_, see_,
+                corner_thresh_);
 
     bool use_right = false;
     if (right_straight && left_straight)

@@ -19,7 +19,8 @@
 using namespace std::chrono_literals;
 
 // delta distance + odom correction + parallel wall correction at goal (using
-// laser) + heading hold + Corner detection nudge + back nudge
+// laser) + heading hold + Corner detection nudge + back nudge + advance after
+// front obstacle
 
 class PIDMazeSolver : public rclcpp::Node {
 public:
@@ -131,7 +132,8 @@ public:
     timer_ = this->create_wall_timer(
         100ms, std::bind(&PIDMazeSolver::controlLoop, this));
 
-    RCLCPP_INFO(get_logger(), "PIDMazeSolver ready. Scene=%d", scene_number_);
+    RCLCPP_INFO(get_logger(), "PIDMazeSolver ready. Scene=%d",
+                scene_number_);
   }
 
 private:
@@ -531,8 +533,49 @@ private:
       float dist = std::sqrt(err_x * err_x + err_y * err_y);
 
       // ── Front obstacle early stop ──────────────────────────────────────
+      // BLUNTLY STOP IF TOO CLOSE TO WALL
+      //   if (front_ < front_stop_thresh_) {
+      //     publish(0, 0, 0);
+      //     rclcpp::sleep_for(200ms);
+      //     RCLCPP_WARN(get_logger(),
+      //                 "[MOVE] Front obstacle %.3f < %.3f — early stop",
+      //                 front_, front_stop_thresh_);
+      //     phase_ = Phase::CORRECTING;
+      //     correction_counter_ = 0;
+
+      //     return;
+      //   }
+
+      // STOP EARLY WHEN WALL DETECTED, IF(ONLY IF) CLOSE ENOUGH TO GOAL
+      //   if (front_ <= front_stop_thresh_) {
+      //     // Only stop early if close enough to goal — otherwise it's a real
+      //     // obstacle
+      //     if (dist < goal_tolerance_ * 3.0f) {
+      //       publish(0, 0, 0);
+      //       rclcpp::sleep_for(200ms);
+      //       RCLCPP_WARN(
+      //           get_logger(),
+      //           "[MOVE] Front obstacle %.3f — close enough (dist=%.3f),
+      //           stopping", front_, dist);
+      //       phase_ = Phase::CORRECTING;
+      //       correction_counter_ = 0;
+      //       return;
+      //     } else {
+      //       // Still far from goal — wall is a real obstacle, don't advance
+      //       RCLCPP_WARN_THROTTLE(
+      //           get_logger(), *get_clock(), 1000,
+      //           "[MOVE] Front obstacle %.3f but dist=%.3f still large —
+      //           waiting", front_, dist);
+      //       publish(0, 0, 0);
+      //       return;
+      //     }
+      //   }
+
       // STOP EARLY WHEN WALL DETECTED, AND CONSIDER THAT AS GOAL REACHED
-      if (front_ <= front_stop_thresh_) {
+      // Skip front check for pure/dominant strafe goals — front wall is
+      // irrelevant when the robot moves sideways (dy dominant over dx).
+      bool moving_forward = std::fabs(goal.x) > std::fabs(goal.y) * 0.5f;
+      if (moving_forward && front_ <= front_stop_thresh_) {
         if (dist < early_stop_dist_) {
           // close enough — accept wall as goal reached
           publish(0, 0, 0);
@@ -582,13 +625,8 @@ private:
       float vx = cos_y * ctrl_x + sin_y * ctrl_y;
       float vy = -sin_y * ctrl_x + cos_y * ctrl_y;
 
-      // ── Minimum vx to overcome motor deadband ─────────────────────────
-      float min_vx = 0.08f;
-      if (dist > goal_tolerance_ && std::fabs(vx) < min_vx &&
-          std::fabs(ctrl_x) > 0.001f)
-        vx = std::copysign(min_vx, vx);
-
       // ── Wall nudge ────────────────────────────────────────────────────
+      // Side walls
       if (left_ < wall_nudge_thresh_) {
         vy -= nudge_gain_;
         RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000,

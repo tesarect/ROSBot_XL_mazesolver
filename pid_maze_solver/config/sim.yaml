@@ -11,15 +11,12 @@ maze_solver_node:
 
     # PID gain
     # Distance Controller
-    # DkP: 1.4
+    # DkP: 2.0
     # DkI: 0.0001
-    # DkD: 0.8
-    # DkP: 1.8
-    # DkI: 0.0001
-    # DkD: 1.0
-    DkP: 2.0
+    # DkD: 1.5
+    DkP: 2.1
     DkI: 0.0001
-    DkD: 1.5
+    DkD: 1.4
     # Turn Controller
     TkP: 3.0
     TkI: 0.0001
@@ -32,13 +29,15 @@ maze_solver_node:
     goal_tolerance: 0.03
 
     # front_stop_thresh: 0.25
+    # front_stop_thresh: 0.20
     front_stop_thresh: 0.20
     front_corr_thresh: 0.16
     early_stop_dist: 0.15
 
     # wall_nudge_thresh: 0.23     # while MOVING
     wall_nudge_thresh: 0.22     # while MOVING - side walls
-    back_nudge_thresh:   0.20   # back arc avg distance to trigger forward push
+    # back_nudge_thresh: 0.20     # back arc avg distance to trigger forward push
+    back_nudge_thresh: 0.24     # back arc avg distance to trigger forward push    <<<
     # nudge_gain: 0.05
     # nudge_gain: 0.04
     nudge_gain: 0.06
