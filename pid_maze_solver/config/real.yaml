@@ -13,25 +13,59 @@ maze_solver_node:
 
     # PID gain
     # Distance Controller
-    DkP: 0.27
-    DkI: 0.001
-    DkD: 0.23
+    # DkP: 0.27
+    # DkI: 0.001
+    # DkD: 0.23
+    # DkP: 0.4
+    # DkI: 0.005
+    # DkD: 0.2
+    DkP: 0.22
+    DkI: 0.005
+    DkD: 0.21
     # Turn Controller
-    TkP: 0.8
+    # TkP: 0.8
+    # TkI: 0.005
+    # TkD: 0.5
+    TkP: 3.0
+    # TkI: 0.0001
     TkI: 0.005
-    TkD: 0.5
+    # TkD: 1.9
+    TkD: 1.4
 
-    max_ang_vel: 0.2
-    max_lin_vel: 0.5
+    # max_ang_vel: 0.2  <<
+    max_ang_vel: 0.5
+    max_lin_vel: 0.7
 
     yaw_tolerance: 0.01         # rad
     goal_tolerance: 0.05
 
     front_stop_thresh: 0.25
-    wall_nudge_thresh: 0.20
-    nudge_gain: 0.05
     front_corr_thresh: 0.16
-    side_corr_thresh: 0.20
+    early_stop_dist: 0.15
+
+    # wall_nudge_thresh: 0.20     # while MOVING
+    wall_nudge_thresh: 0.22     # while MOVING
+    # nudge_gain: 0.05
+    nudge_gain: 0.02
+
+    side_corr_thresh: 0.20      # while CORRECTION
+    
+    parallel_thresh: 0.02
+    parallel_wall_max: 0.40
+    parallel_timeout: 30
+    parallel_gain: 0.8
+    # corner_thresh: 0.12
+    corner_thresh: 0.12
+
+    tilt_correction: false
     tilt_thresh: 0.015
     tilt_gain: 1.0
     correction_timeout: 200
+
+    heading_hold_kP:     1.5   # how aggressively to correct yaw drift
+    heading_hold_max_wz: 0.3   # cap so it doesn't fight the odom PID
+
+    wall_pid_kP:       1.0    # lateral P gain
+    wall_pid_target:   0.25   # desired distance from wall (metres)
+    wall_pid_max_vy:   0.15   # max lateral correction
+    wall_pid_max_dist: 0.50   # only engage if wall within this distance

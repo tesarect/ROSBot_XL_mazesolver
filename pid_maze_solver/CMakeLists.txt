@@ -45,9 +45,8 @@ ament_target_dependencies(pid_maze_solver
     tf2_ros
     tf2_geometry_msgs)
 
-
-add_executable(pid_maze_solver_s src/pid_maze_solver_simple.cpp)
-ament_target_dependencies(pid_maze_solver_s 
+add_executable(pid_maze_solver_cd src/pid_maze_solver_cd.cpp)
+ament_target_dependencies(pid_maze_solver_cd 
 	rclcpp 
 	geometry_msgs 
 	nav_msgs 
@@ -55,7 +54,6 @@ ament_target_dependencies(pid_maze_solver_s
 	tf2
     tf2_ros
     tf2_geometry_msgs)
-
 
 # Specify include path for this target (modern CMake) -----------------
 target_include_directories(pid_maze_solver PUBLIC
@@ -68,7 +66,7 @@ target_include_directories(pid_maze_solver PUBLIC
   ${EIGEN3_INCLUDE_DIRS})
 
 target_link_libraries(pid_maze_solver yaml-cpp)
-target_link_libraries(pid_maze_solver_s yaml-cpp)
+target_link_libraries(pid_maze_solver_cd yaml-cpp)
 
 install(DIRECTORY 
   config
@@ -77,7 +75,7 @@ install(DIRECTORY
 
 install(TARGETS
 	pid_maze_solver
-	pid_maze_solver_s
+	pid_maze_solver_cd
 	DESTINATION lib/${PROJECT_NAME}
 )
 

@@ -11,9 +11,15 @@ maze_solver_node:
 
     # PID gain
     # Distance Controller
-    DkP: 1.4
+    # DkP: 1.4
+    # DkI: 0.0001
+    # DkD: 0.8
+    # DkP: 1.8
+    # DkI: 0.0001
+    # DkD: 1.0
+    DkP: 2.0
     DkI: 0.0001
-    DkD: 0.8
+    DkD: 1.5
     # Turn Controller
     TkP: 3.0
     TkI: 0.0001
@@ -27,11 +33,36 @@ maze_solver_node:
 
     # front_stop_thresh: 0.25
     front_stop_thresh: 0.20
-    wall_nudge_thresh: 0.20
-    nudge_gain: 0.05
     front_corr_thresh: 0.16
-    side_corr_thresh: 0.20
+    early_stop_dist: 0.15
+
+    # wall_nudge_thresh: 0.23     # while MOVING
+    wall_nudge_thresh: 0.22     # while MOVING - side walls
+    back_nudge_thresh:   0.20   # back arc avg distance to trigger forward push
+    # nudge_gain: 0.05
+    # nudge_gain: 0.04
+    nudge_gain: 0.06
+
+    wheel_corner_thresh: 0.30   # any body corner closer than this → nudge away
+
+    side_corr_thresh: 0.20      # while CORRECTION
+    
+    parallel_thresh: 0.02
+    parallel_wall_max: 0.40
+    parallel_timeout: 30
+    parallel_gain: 0.8
+    # corner_thresh: 0.12
+    corner_thresh: 0.12
+
     tilt_correction: false
     tilt_thresh: 0.015
     tilt_gain: 1.0
     correction_timeout: 200
+
+    heading_hold_kP:     1.5   # how aggressively to correct yaw drift
+    heading_hold_max_wz: 0.3   # cap so it doesn't fight the odom PID
+
+    wall_pid_kP:       1.0    # lateral P gain
+    wall_pid_target:   0.25   # desired distance from wall (metres)
+    wall_pid_max_vy:   0.15   # max lateral correction
+    wall_pid_max_dist: 0.50   # only engage if wall within this distance

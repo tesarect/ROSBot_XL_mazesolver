@@ -100,11 +100,31 @@ class ScanRangesTF(Node):
         right = msg.ranges[self.to_index(-90)]
         back = msg.ranges[self.to_index(180)]
 
+        nee = msg.ranges[self.to_index(-67.5)]
+        nww = msg.ranges[self.to_index(67.5)]
+        see = msg.ranges[self.to_index(-112.5)]
+        sww = msg.ranges[self.to_index(112.5)]
+
+        wfl = msg.ranges[self.to_index(55.4)]
+        wfr = msg.ranges[self.to_index(-55.4)]
+        wrl = msg.ranges[self.to_index(124.6)]
+        wrr = msg.ranges[self.to_index(-124.6)]
+
+        # text = (
+        #     f"F: {front:.2f} m\n"
+        #     f"L: {left:.2f} m\n"
+        #     f"R: {right:.2f} m\n"
+        #     f"B: {back:.2f} m\n"
+        #     f"FR: {nee:.2f} m\n"
+        #     f"BR: {see:.2f} m\n"
+        #     f"FL: {nww:.2f} m\n"
+        #     f"BL: {sww:.2f} m"
+        # )
         text = (
-            f"Front: {front:.2f} m\n"
-            f"Left: {left:.2f} m\n"
-            f"Right: {right:.2f} m\n"
-            f"Back: {back:.2f} m"
+            f"F: {front:.2f} m\tL: {left:.2f} m\n"
+            f"B: {back:.2f} m\tR: {right:.2f} m\n"
+            f"FL: {nww:.2f} m\tFR: {nee:.2f} m\n"
+            f"BL: {sww:.2f} m\tBR: {see:.2f} m\n"
         )
 
         marker = Marker()

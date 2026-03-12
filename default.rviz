@@ -6,6 +6,7 @@ Panels:
       Expanded:
         - /Global Options1
         - /TF1/Frames1
+        - /LaserScan1
         - /Marker1/Topic1
         - /RobotModel1/Description Topic1
       Splitter Ratio: 0.5
@@ -86,26 +87,27 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        odom:
-          base_link:
-            body_link:
-              antenna_connector_link:
-                antenna_link:
+        base_link:
+          body_link:
+            antenna_connector_link:
+              antenna_link:
+                {}
+            cover_link:
+              slamtec_rplidar_s1_link:
+                laser:
                   {}
-              cover_link:
-                slamtec_rplidar_s1_link:
-                  laser:
-                    {}
-              fl_wheel_link:
-                {}
-              fr_wheel_link:
-                {}
-              imu_link:
-                {}
-              rl_wheel_link:
-                {}
-              rr_wheel_link:
-                {}
+            fl_wheel_link:
+              {}
+            fr_wheel_link:
+              {}
+            imu_link:
+              {}
+            rl_wheel_link:
+              {}
+            rr_wheel_link:
+              {}
+        odom:
+          {}
       Update Interval: 0
       Value: true
     - Angle Tolerance: 0.10000000149011612
@@ -147,7 +149,7 @@ Visualization Manager:
         Reliability Policy: Reliable
         Value: /odometry/filtered
       Value: false
-    - Alpha: 1
+    - Alpha: 0.5
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
         Max Value: 10
@@ -169,7 +171,7 @@ Visualization Manager:
       Position Transformer: XYZ
       Selectable: true
       Size (Pixels): 3
-      Size (m): 0.019999999552965164
+      Size (m): 0.009999999776482582
       Style: Flat Squares
       Topic:
         Depth: 5
@@ -185,7 +187,7 @@ Visualization Manager:
       Enabled: true
       Name: Marker
       Namespaces:
-        scan_text: true
+        {}
       Topic:
         Depth: 10
         Durability Policy: Volatile
@@ -276,6 +278,20 @@ Visualization Manager:
       Update Interval: 0
       Value: true
       Visual Enabled: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: MarkerArray
+      Namespaces:
+        scan_hits: true
+        scan_lines: true
+        scan_text: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /scan_range_markers
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -322,22 +338,22 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/ThirdPersonFollower
-      Distance: 2.409520387649536
+      Distance: 1.9792938232421875
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -0.02471059560775757
-        Y: -0.0184173583984375
-        Z: 0.17345571517944336
+        X: -0.27388036251068115
+        Y: -0.0011284351348876953
+        Z: 0.17345499992370605
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.5697963237762451
+      Pitch: 1.5497963428497314
       Target Frame: base_link
       Value: ThirdPersonFollower (rviz_default_plugins)
       Yaw: 3.1372182369232178
