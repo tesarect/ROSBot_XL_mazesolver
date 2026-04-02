@@ -27,7 +27,6 @@ public:
       : Node("maze_solver_node", options), scene_number_(scene_number),
         tf_buffer_(this->get_clock()) {
 
-    // ── Parameters ─────────────────────────────────────────────────────────
     odom_topic_ = this->declare_parameter<std::string>("odom_topic",
                                                        "/odometry/filtered");
     laser_topic_ = this->declare_parameter<std::string>("laser_topic", "/scan");
@@ -733,9 +732,7 @@ private:
                 cycles);
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // advanceGoal — move to next waypoint, reset state
-  // ═══════════════════════════════════════════════════════════════════════════
   void advanceGoal() {
     goal_idx_++;
     goal_active_ = false;
@@ -747,9 +744,7 @@ private:
     RCLCPP_INFO(get_logger(), "Advancing to goal %zu", goal_idx_);
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // Utilities
-  // ═══════════════════════════════════════════════════════════════════════════
   void publish(double vx, double vy, double wz) {
     geometry_msgs::msg::Twist cmd;
     cmd.linear.x = vx;
@@ -766,10 +761,6 @@ private:
     return a;
   }
 };
-
-// ═══════════════════════════════════════════════════════════════════════════
-// main
-// ═══════════════════════════════════════════════════════════════════════════
 
 int main(int argc, char **argv) {
   rclcpp::init(argc, argv);

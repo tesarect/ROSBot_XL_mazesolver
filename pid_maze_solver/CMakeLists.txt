@@ -45,56 +45,6 @@ ament_target_dependencies(pid_maze_solver
     tf2_ros
     tf2_geometry_msgs)
 
-add_executable(pid_maze_solver_cd src/pid_maze_solver_cd.cpp)
-ament_target_dependencies(pid_maze_solver_cd 
-	rclcpp 
-	geometry_msgs 
-	nav_msgs 
-	sensor_msgs 
-	tf2
-    tf2_ros
-    tf2_geometry_msgs)
-
-add_executable(pid_maze_solver_cd_fo src/pid_maze_solver_cd_fo.cpp)
-ament_target_dependencies(pid_maze_solver_cd_fo 
-	rclcpp 
-	geometry_msgs 
-	nav_msgs 
-	sensor_msgs 
-	tf2
-    tf2_ros
-    tf2_geometry_msgs)
-
-add_executable(pid_maze_solver_cd_fo_yc src/pid_maze_solver_cd_fo_yc.cpp)
-ament_target_dependencies(pid_maze_solver_cd_fo_yc 
-	rclcpp 
-	geometry_msgs 
-	nav_msgs 
-	sensor_msgs 
-	tf2
-    tf2_ros
-    tf2_geometry_msgs)
-
-add_executable(pid_maze_solver_f src/pid_maze_solver_f.cpp)
-ament_target_dependencies(pid_maze_solver_f
-	rclcpp 
-	geometry_msgs 
-	nav_msgs 
-	sensor_msgs 
-	tf2
-    tf2_ros
-    tf2_geometry_msgs)
-
-add_executable(pid_maze_solver_2 src/pid_maze_solver_2.cpp)
-ament_target_dependencies(pid_maze_solver_2
-	rclcpp 
-	geometry_msgs 
-	nav_msgs 
-	sensor_msgs 
-	tf2
-    tf2_ros
-    tf2_geometry_msgs)
-
 # Specify include path for this target (modern CMake) -----------------
 target_include_directories(pid_maze_solver PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -106,28 +56,17 @@ target_include_directories(pid_maze_solver PUBLIC
   ${EIGEN3_INCLUDE_DIRS})
 
 target_link_libraries(pid_maze_solver yaml-cpp)
-target_link_libraries(pid_maze_solver_cd yaml-cpp)
-target_link_libraries(pid_maze_solver_cd_fo yaml-cpp)
-target_link_libraries(pid_maze_solver_cd_fo_yc yaml-cpp)
-target_link_libraries(pid_maze_solver_f yaml-cpp)
-target_link_libraries(pid_maze_solver_2 yaml-cpp)
 
 install(DIRECTORY 
   config
   launch
   rviz
   scripts
-  waypoints
   DESTINATION share/${PROJECT_NAME}
 )
 
 install(TARGETS
 	pid_maze_solver
-	pid_maze_solver_cd
-	pid_maze_solver_cd_fo
-	pid_maze_solver_cd_fo_yc
-	pid_maze_solver_f
-	pid_maze_solver_2
 	DESTINATION lib/${PROJECT_NAME}
 )
 
