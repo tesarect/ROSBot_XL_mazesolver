@@ -18,9 +18,7 @@
 
 using namespace std::chrono_literals;
 
-// delta distance + odom correction + parallel wall correction at goal (using
-// laser) + heading hold + Corner detection nudge + back nudge + advance after front obstacle
-// with rotational yaw correction + motor dead band (min_vx) + wp yaw compenstation
+// 3 [ 1 + wall parallel agignment correction at the correction phase ]
 
 class PIDMazeSolver : public rclcpp::Node {
 public:
@@ -40,6 +38,9 @@ public:
     DkP_ = this->declare_parameter<float>("DkP", 1.2f);
     DkI_ = this->declare_parameter<float>("DkI", 0.001f);
     DkD_ = this->declare_parameter<float>("DkD", 0.001f);
+    // Separate D gain for lateral axis — real robots have noisy lateral odom,
+    // high DkD on lateral causes derivative spikes that overwhelm the PID.
+    DkD_lat_ = this->declare_parameter<float>("DkD_lat", 0.0f);
 
     max_lin_vel_ = this->declare_parameter<float>("max_lin_vel", 0.2f);
     max_ang_vel_ = this->declare_parameter<float>("max_ang_vel", 1.0f);
@@ -131,7 +132,7 @@ public:
 
     RCLCPP_INFO(
         get_logger(),
-        "PIDMazeSolver ready. Scene=%d",
+        "PIDMazeSolver 🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐 ready. Scene=%d",
         scene_number_);
   }
 
@@ -161,12 +162,16 @@ private:
   // treats the robot's initial orientation as yaw=0.
   float yaw_offset_     = 0.0f;
   bool  yaw_offset_set_ = false;
+  // Real dt tracking — sleep_for inside the callback delays subsequent ticks,
+  // so we measure actual elapsed time instead of assuming 0.1s.
+  rclcpp::Time last_tick_time_;
+  bool         last_tick_set_ = false;
 
   // ── PID ────────────────────────────────────────────────────────────────────
   maze_solver::PID turn_pid_;
   maze_solver::PID dist_pid_;
   float TkP_, TkI_, TkD_;
-  float DkP_, DkI_, DkD_;
+  float DkP_, DkI_, DkD_, DkD_lat_;
   float max_lin_vel_, max_ang_vel_;
   float goal_tolerance_, yaw_tolerance_;
   float min_vx_;  // minimum vx to overcome motor deadband on real hardware
@@ -437,8 +442,7 @@ private:
     // Since CBL(145°) > CBR(-145°) in index space (wraps through 180°),
     // we average from idx_back_arc_l_ to num_rays_-1, then 0 to idx_back_arc_r_
     {
-      float sum = 0.0f;
-      int cnt = 0;
+      float sum = 0.0f; int cnt = 0;
       auto accum = [&](int lo, int hi) {
         for (int i = lo; i <= hi; i++)
           if (std::isfinite(r[i]) && r[i] > 0.01f && r[i] < rmax)
@@ -478,6 +482,18 @@ private:
 
     // corrected_yaw is used everywhere instead of current_yaw_
     float corrected_yaw = normalizeAngle(current_yaw_ - yaw_offset_);
+
+    // ── Measure real dt ───────────────────────────────────────────────────
+    // sleep_for() calls inside this callback delay subsequent timer firings,
+    // so actual dt can be much longer than the nominal 100ms. Clamp to
+    // [0.05, 0.7] to guard against absurd values at startup or after stalls.
+    rclcpp::Time now = this->now();
+    float dt = 0.1f;
+    if (last_tick_set_) {
+      dt = std::clamp((float)(now - last_tick_time_).seconds(), 0.05f, 0.7f);
+    }
+    last_tick_time_ = now;
+    last_tick_set_  = true;
 
     // All done
     if (goal_idx_ >= goals_.size()) {
@@ -556,68 +572,80 @@ private:
         return;
       }
 
-    //   float target_x = start_x_ + goal.x;
-    //   float target_y = start_y_ + goal.y;
-    //   float err_x = target_x - current_x_;
-    //   float err_y = target_y - current_y_;
       float err_x = target_x_ - current_x_;
       float err_y = target_y_ - current_y_;
       float dist = std::sqrt(err_x * err_x + err_y * err_y);
 
       // ── Front obstacle early stop ──────────────────────────────────────
+      // BLUNTLY STOP IF TOO CLOSE TO WALL
+      //   if (front_ < front_stop_thresh_) {
+      //     publish(0, 0, 0);
+      //     rclcpp::sleep_for(200ms);
+      //     RCLCPP_WARN(get_logger(),
+      //                 "[MOVE] Front obstacle %.3f < %.3f — early stop",
+      //                 front_, front_stop_thresh_);
+      //     phase_ = Phase::CORRECTING;
+      //     correction_counter_ = 0;
+
+      //     return;
+      //   }
+
+      // STOP EARLY WHEN WALL DETECTED, IF(ONLY IF) CLOSE ENOUGH TO GOAL
+      //   if (front_ <= front_stop_thresh_) {
+      //     // Only stop early if close enough to goal — otherwise it's a real
+      //     // obstacle
+      //     if (dist < goal_tolerance_ * 3.0f) {
+      //       publish(0, 0, 0);
+      //       rclcpp::sleep_for(200ms);
+      //       RCLCPP_WARN(
+      //           get_logger(),
+      //           "[MOVE] Front obstacle %.3f — close enough (dist=%.3f),
+      //           stopping", front_, dist);
+      //       phase_ = Phase::CORRECTING;
+      //       correction_counter_ = 0;
+      //       return;
+      //     } else {
+      //       // Still far from goal — wall is a real obstacle, don't advance
+      //       RCLCPP_WARN_THROTTLE(
+      //           get_logger(), *get_clock(), 1000,
+      //           "[MOVE] Front obstacle %.3f but dist=%.3f still large —
+      //           waiting", front_, dist);
+      //       publish(0, 0, 0);
+      //       return;
+      //     }
+      //   }
+
       // STOP EARLY WHEN WALL DETECTED, AND CONSIDER THAT AS GOAL REACHED
       // Skip front check for pure/dominant strafe goals — front wall is
       // irrelevant when the robot moves sideways (dy dominant over dx).
       bool moving_forward = std::fabs(goal.x) > std::fabs(goal.y) * 0.5f;
       if (moving_forward && front_ <= front_stop_thresh_) {
+        publish(0, 0, 0);
         if (dist < early_stop_dist_) {
-          // close enough — accept wall as goal reached
-          publish(0, 0, 0);
-          rclcpp::sleep_for(200ms);
           RCLCPP_WARN(get_logger(),
                       "[MOVE] Front obstacle %.3f — dist=%.3f < "
                       "early_stop_dist=%.3f, accepting",
                       front_, dist, early_stop_dist_);
-          phase_ = Phase::CORRECTING;
-          correction_counter_ = 0;
         } else {
-          // too far — something wrong, just advance anyway after logging
-          publish(0, 0, 0);
           RCLCPP_WARN(get_logger(),
                       "[MOVE] Front obstacle %.3f — dist=%.3f too large "
                       "[early_stop: %.3f] | forcing advance",
                       front_, dist, early_stop_dist_);
-          phase_ = Phase::CORRECTING;
-          correction_counter_ = 0;
         }
+        phase_ = Phase::CORRECTING;
+        correction_counter_ = 0;
         return;
       }
 
       // ── Goal reached ──────────────────────────────────────────────────
       if (dist < goal_tolerance_) {
         publish(0, 0, 0);
-        rclcpp::sleep_for(300ms);
         RCLCPP_INFO(get_logger(), "[MOVE] Reached goal %zu", goal_idx_);
         phase_ = Phase::CORRECTING;
         correction_counter_ = 0;
         return;
       }
 
-    //   // ── PID: compute world-frame velocity then rotate to robot frame ───
-    //   integ_x_ += err_x * 0.1f;
-    //   integ_y_ += err_y * 0.1f;
-    //   float ctrl_x =
-    //       DkP_ * err_x + DkI_ * integ_x_ + DkD_ * (err_x - prev_err_x_) / 0.1f;
-    //   float ctrl_y =
-    //       DkP_ * err_y + DkI_ * integ_y_ + DkD_ * (err_y - prev_err_y_) / 0.1f;
-    //   ctrl_x = std::clamp(ctrl_x, -max_lin_vel_, max_lin_vel_);
-    //   ctrl_y = std::clamp(ctrl_y, -max_lin_vel_, max_lin_vel_);
-
-    //   // Rotate world-frame {ctrl_x, ctrl_y} → robot-frame {vx, vy}
-    //   float cos_y = std::cos(corrected_yaw);
-    //   float sin_y = std::sin(corrected_yaw);
-    //   float vx = cos_y * ctrl_x + sin_y * ctrl_y;
-    //   float vy = -sin_y * ctrl_x + cos_y * ctrl_y;
       // ── PID in robot-local frame ──────────────────────────────────────
       // Rotate the world-frame error into robot frame each tick.
       // This keeps err_fwd/err_lat decoupled: a pure forward goal stays
@@ -627,36 +655,55 @@ private:
       float err_fwd =  cos_y * err_x + sin_y * err_y;  // forward error
       float err_lat = -sin_y * err_x + cos_y * err_y;  // lateral error
 
-      integ_x_ += err_fwd * 0.1f;
-      integ_y_ += err_lat * 0.1f;
+      // When yaw error is large the lateral odom error is meaningless —
+      // the robot needs to rotate first, not strafe. Zero the lateral integrator
+      // to prevent it winding up while heading_hold corrects the yaw.
+      float yaw_err_now = normalizeAngle(
+          normalizeAngle(start_yaw_ + goal.theta) - corrected_yaw);
+      if (std::fabs(yaw_err_now) > 0.10f)
+        integ_y_ = 0.0f;
+
+      integ_x_ += err_fwd * dt;
+      integ_y_ += err_lat * dt;
+      // Clamp integrators to prevent windup
+      integ_x_ = std::clamp(integ_x_, -1.0f, 1.0f);
+      integ_y_ = std::clamp(integ_y_, -0.5f, 0.5f);  // tighter on lateral
+
       float vx = DkP_ * err_fwd + DkI_ * integ_x_ +
-                 DkD_ * (err_fwd - prev_err_x_) / 0.1f;
+                 DkD_     * (err_fwd - prev_err_x_) / dt;
       float vy = DkP_ * err_lat + DkI_ * integ_y_ +
-                 DkD_ * (err_lat - prev_err_y_) / 0.1f;
+                 DkD_lat_ * (err_lat - prev_err_y_) / dt;
+      // Also suppress lateral PID output when yaw error is large
+      if (std::fabs(yaw_err_now) > 0.10f)
+        vy = 0.0f;
       vx = std::clamp(vx, -max_lin_vel_, max_lin_vel_);
       vy = std::clamp(vy, -max_lin_vel_, max_lin_vel_);
 
       // ── Minimum vx to overcome motor deadband ─────────────────────────
-      // At small dist the PID output drops below the motor's minimum
-      // actuation threshold and the robot stalls just outside goal_tolerance.
-      // Clamp vx to min_vx_ whenever the PID wants motion but dist > tolerance.
-    //   if (dist > goal_tolerance_ && std::fabs(ctrl_x) > 0.001f &&
       if (dist > goal_tolerance_ && std::fabs(err_fwd) > 0.001f &&
           std::fabs(vx) < min_vx_)
         vx = std::copysign(min_vx_, vx);
 
       // ── Wall nudge ────────────────────────────────────────────────────
-      // Side walls
+      // When a wall nudge fires, it overrides the lateral PID completely —
+      // the odom lateral error is unreliable when the robot is hugging a wall,
+      // and letting both run causes them to fight each other.
+      bool wall_nudge_active = false;
       if (left_ < wall_nudge_thresh_) {
-        vy -= nudge_gain_;
+        vy = -nudge_gain_;   // override, not add
+        integ_y_ = 0.0f;     // reset integrator so it doesn't wind up
+        wall_nudge_active = true;
         RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000,
                              "[MOVE] Left nudge left_=%.3f", left_);
       }
       if (right_ < wall_nudge_thresh_) {
-        vy += nudge_gain_;
+        vy = nudge_gain_;    // override, not add
+        integ_y_ = 0.0f;
+        wall_nudge_active = true;
         RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000,
                              "[MOVE] Right nudge right_=%.3f", right_);
       }
+      (void)wall_nudge_active;  // reserved for future use
       // Back arc — push forward gently if full rear sweep is too close
       if (back_arc_ < back_nudge_thresh_) {
         vx += nudge_gain_ * 0.5f;
@@ -696,22 +743,17 @@ private:
       }
 
       // ── Heading hold ──────────────────────────────────────────────────
-      // Hold heading at the target yaw (start_yaw_ + goal.theta) during MOVE.
-      // Counters yaw drift without waiting for the next goal boundary.
-      float target_yaw = normalizeAngle(start_yaw_ + goal.theta);
-      float yaw_err = normalizeAngle(target_yaw - corrected_yaw);
-      float wz_hold = heading_hold_kP_ * yaw_err;
+      // Reuse yaw_err_now computed above — same target_yaw, no redundant call.
+      float wz_hold = heading_hold_kP_ * yaw_err_now;
       wz_hold = std::clamp(wz_hold, -heading_hold_max_wz_, heading_hold_max_wz_);
       RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 500,
                            "[MOVE] heading_hold yaw_err=%.4f wz=%.3f",
-                           yaw_err, wz_hold);
+                           yaw_err_now, wz_hold);
 
       publish(vx, vy, wz_hold);
 
-    //   prev_err_x_ = err_x;
-    //   prev_err_y_ = err_y;
-      prev_err_x_ = err_fwd; // robot-local forward error
-      prev_err_y_ = err_lat; // robot-local lateral error
+      prev_err_x_ = err_fwd;  // robot-local forward error
+      prev_err_y_ = err_lat;  // robot-local lateral error
 
       RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 500,
                            "[MOVE] dist=%.4f | vx=%.3f vy=%.3f | "
@@ -787,10 +829,8 @@ private:
 
       // All clear — align to wall before advancing
       publish(0, 0, 0);
-      rclcpp::sleep_for(300ms);
-      RCLCPP_INFO(get_logger(), "[CORR] Done in %d cycles.",
-                  correction_counter_);
-      align_parallel_to_wall(); // ← comment out to disable
+      RCLCPP_INFO(get_logger(), "[CORR] Done in %d cycles.", correction_counter_);
+      align_parallel_to_wall();
       advanceGoal();
     }
   }
@@ -834,7 +874,7 @@ private:
       return std::fabs(front_ray - back_ray) < corner_thresh_;
     };
 
-    bool left_straight = isStraightWall(nee_, see_);
+    bool left_straight  = isStraightWall(nee_, see_);
     bool right_straight = isStraightWall(nww_, sww_);
 
     RCLCPP_INFO(get_logger(),

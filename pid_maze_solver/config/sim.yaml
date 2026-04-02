@@ -16,7 +16,8 @@ maze_solver_node:
     # DkD: 1.5
     DkP: 2.1
     DkI: 0.0001
-    DkD: 1.4
+    # DkD: 1.4
+    DkD: 1.2
     # Turn Controller
     TkP: 3.0
     TkI: 0.0001
@@ -24,22 +25,17 @@ maze_solver_node:
 
     max_ang_vel: 1.5
     max_lin_vel: 3.0
+    min_vx: 0.07          # tune up if robot still stalls
 
     yaw_tolerance: 0.01         # rad
     goal_tolerance: 0.03
 
-    # front_stop_thresh: 0.25
-    # front_stop_thresh: 0.20
-    front_stop_thresh: 0.20
-    front_corr_thresh: 0.16
+    front_stop_thresh: 0.20   # >> .25
+    front_corr_thresh: 0.20       # >> .16
     early_stop_dist: 0.15
 
-    # wall_nudge_thresh: 0.23     # while MOVING
     wall_nudge_thresh: 0.22     # while MOVING - side walls
-    # back_nudge_thresh: 0.20     # back arc avg distance to trigger forward push
-    back_nudge_thresh: 0.24     # back arc avg distance to trigger forward push    <<<
-    # nudge_gain: 0.05
-    # nudge_gain: 0.04
+    back_nudge_thresh: 0.26     # >> .20 >> .24
     nudge_gain: 0.06
 
     wheel_corner_thresh: 0.30   # any body corner closer than this → nudge away
@@ -48,9 +44,8 @@ maze_solver_node:
     
     parallel_thresh: 0.02
     parallel_wall_max: 0.40
-    parallel_timeout: 30
+    parallel_timeout: 10      # >> 30
     parallel_gain: 0.8
-    # corner_thresh: 0.12
     corner_thresh: 0.12
 
     tilt_correction: false
@@ -59,9 +54,12 @@ maze_solver_node:
     correction_timeout: 200
 
     heading_hold_kP:     1.5   # how aggressively to correct yaw drift
-    heading_hold_max_wz: 0.3   # cap so it doesn't fight the odom PID
+    heading_hold_max_wz: 0.5   # cap so it doesn't fight the odom PID
 
     wall_pid_kP:       1.0    # lateral P gain
     wall_pid_target:   0.25   # desired distance from wall (metres)
     wall_pid_max_vy:   0.15   # max lateral correction
     wall_pid_max_dist: 0.50   # only engage if wall within this distance
+
+    DkD_lat: 0.0          # add — keep lateral D at zero, derivative spikes on real hw
+    DkD: 0.10             # forward D only, can keep some

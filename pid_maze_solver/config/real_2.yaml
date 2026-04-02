@@ -1,0 +1,62 @@
+maze_solver_node:
+  ros__parameters:
+
+    # ── Topics ────────────────────────────────────────────────────────────
+    odom_topic:  "/odometry/filtered"
+    laser_topic: "/scan"
+    imu_topic:   "imu_broadcaster/imu"
+
+    # ── Waypoint loading ──────────────────────────────────────────────────
+    num_waypoints: -1        # -1 = load all waypoints
+
+    # ── Distance PID ──────────────────────────────────────────────────────
+    # Lower gains than sim — real robot has motor deadband, wheel slip, lag.
+    # D-term uses odom body-frame velocity (not position diff).
+    pid_x_kp: 2.1
+    pid_x_ki: 0.001
+    pid_x_kd: 0.3
+
+    # pid_y_kp: 2.1
+    # pid_y_ki: 0.001
+    # pid_y_kd: 0.3
+    pid_y_kp: 2.7
+    pid_y_ki: 0.001
+    pid_y_kd: 0.3
+
+    # ── Yaw PID ───────────────────────────────────────────────────────────
+    # D-term uses IMU yaw-rate directly — much cleaner than odom yaw diff.
+    pid_yaw_kp: 1.25
+    pid_yaw_ki: 0.001
+    pid_yaw_kd: 0.3
+
+    # ── Velocity limits ───────────────────────────────────────────────────
+    # Lower than spec — gives more time to react to obstacles and IMU noise.
+    max_linear_vel:  0.45    # m/s
+    max_angular_vel: 1.4     # rad/s
+
+    # ── Goal tolerances ───────────────────────────────────────────────────
+    linear_tolerance:      0.01   # metres
+    angular_tolerance:     0.01   # rad
+    linear_vel_tolerance:  0.01   # m/s
+    angular_vel_tolerance: 0.05   # rad/s — looser than sim (IMU has more noise)
+
+    # ── Pause between waypoints ───────────────────────────────────────────
+    pause_duration_sec: 1.5
+
+    # ── Obstacle avoidance ────────────────────────────────────────────────
+    stop_distance:   0.175   # m — tighter than sim (real corridor narrower)
+    slow_distance:   0.50    # m
+    front_angle_deg: 30.0    # ±degrees
+
+    # ── Laser frame ───────────────────────────────────────────────────────
+    laser_yaw_deg: 180.0     # 180° = laser mounted backwards
+
+    # ── Antenna self-echo filter ──────────────────────────────────────────
+    antenna_center_deg:      -170.0   # real robot antenna position
+    antenna_half_width_deg:     9.0
+    antenna_max_range:          0.21
+
+    # ── Anti-drift ────────────────────────────────────────────────────────
+    # Real robot drifts in yaw during long moves — inject into next turn.
+    anti_drift:              true
+    yaw_drift_threshold_deg:  5.0

@@ -16,9 +16,12 @@ maze_solver_node:
     # DkP: 0.27
     # DkI: 0.001
     # DkD: 0.23
-    DkP: 0.77
+    # DkP: 0.77
+    # DkI: 0.001
+    # DkD: 0.25
+    DkP: 0.45
     DkI: 0.001
-    DkD: 0.25
+    DkD: 0.14
     # Turn Controller
     # TkP: 0.8
     # TkI: 0.005
@@ -29,26 +32,19 @@ maze_solver_node:
     # TkD: 1.9
     TkD: 1.4
 
-    # max_ang_vel: 0.2  <<
-    max_ang_vel: 0.5
-    max_lin_vel: 0.7
+    max_ang_vel: 0.5      # >> .5 >> .2
+    max_lin_vel: 0.4
+    min_vx: 0.09          # tune up if robot still stalls
 
     yaw_tolerance: 0.01         # rad
-    goal_tolerance: 0.09
+    goal_tolerance: 0.08        # >> 9
 
-    # front_stop_thresh: 0.25
-    # front_stop_thresh: 0.23   # <<
     front_stop_thresh: 0.25   # <<
-    front_corr_thresh: 0.16
-    early_stop_dist: 0.15
+    front_corr_thresh: 0.23
+    early_stop_dist: 0.06   # << .24  🌀
 
-    # wall_nudge_thresh: 0.20     # while MOVING
-    # wall_nudge_thresh: 0.22     # while MOVING
-    # wall_nudge_thresh: 0.20     # while MOVING    <<
-    wall_nudge_thresh: 0.2     # while MOVING    <<
+    wall_nudge_thresh: 0.18     # while MOVING    >> .23 🌀
     back_nudge_thresh: 0.25     # back arc avg distance to trigger forward push
-    # nudge_gain: 0.05
-    # nudge_gain: 0.02
     nudge_gain: 0.05  # <<
 
     wheel_corner_thresh: 0.30   # any body corner closer than this → nudge away
@@ -57,9 +53,8 @@ maze_solver_node:
     
     parallel_thresh: 0.02
     parallel_wall_max: 0.40
-    parallel_timeout: 30
+    parallel_timeout: 10      # >> 30
     parallel_gain: 0.8
-    # corner_thresh: 0.12
     corner_thresh: 0.12
 
     tilt_correction: false
@@ -68,9 +63,12 @@ maze_solver_node:
     correction_timeout: 200
 
     heading_hold_kP:     1.5   # how aggressively to correct yaw drift
-    heading_hold_max_wz: 0.3   # cap so it doesn't fight the odom PID
+    heading_hold_max_wz: 0.5   # cap so it doesn't fight the odom PID
 
     wall_pid_kP:       1.0    # lateral P gain
     wall_pid_target:   0.25   # desired distance from wall (metres)
     wall_pid_max_vy:   0.15   # max lateral correction
     wall_pid_max_dist: 0.50   # only engage if wall within this distance
+
+    DkD_lat: 0.0          # add — keep lateral D at zero, derivative spikes on real hw
+    DkD: 0.10             # forward D only, can keep some
