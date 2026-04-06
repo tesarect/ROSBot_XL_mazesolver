@@ -116,11 +116,18 @@ public:
     scan_sub_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
         laser_topic_, 10,
         [this](const sensor_msgs::msg::LaserScan::SharedPtr msg) {
-          if (!laser_init_)
+          scan_received_ = true;
+          if (!laser_init_) {
             initLaser(msg);
-          else
+          } else
             updateLaser(msg);
         });
+    auto pub_count = this->count_publishers(laser_topic_);
+
+    if (pub_count == 0) {
+      RCLCPP_ERROR(get_logger(), "[LASER FAIL] No publishers on topic: %s",
+                   laser_topic_.c_str());
+    }
 
     // ── Control loop timer at 10 Hz ────────────────────────────────────────
     timer_ = this->create_wall_timer(
@@ -170,8 +177,9 @@ private:
   bool tilt_correction_;
   float tilt_thresh_, tilt_gain_;
   int correction_timeout_, correction_counter_ = 0;
+  bool scan_received_ = false;
 
-  // ── Laser readings ─────────────────────────────────────────────────────────
+  // ── Laser readings (sentinel value)─────────────────────────────────────────
   float front_ = 9.9f, back_ = 9.9f;
   float left_ = 9.9f, right_ = 9.9f;
   // Diagonal halves for tilt detection (near/far from front)
@@ -275,9 +283,15 @@ private:
                                       msg->header.stamp,
                                       rclcpp::Duration::from_seconds(0.1));
     } catch (tf2::TransformException &ex) {
-      RCLCPP_WARN(get_logger(), "TF not ready: %s", ex.what());
+      //   RCLCPP_WARN(get_logger(), "TF not ready: %s", ex.what());
+      RCLCPP_ERROR_THROTTLE(get_logger(), *get_clock(), 2000,
+                            "[LASER INIT FAIL] TF lookup failed (%s -> %s): %s",
+                            msg->header.frame_id.c_str(), base_link_.c_str(),
+                            ex.what());
       return;
     }
+    RCLCPP_INFO(get_logger(), "[LASER INIT OK] TF lookup SUCESSFUL (%s -> %s)",
+                msg->header.frame_id.c_str(), base_link_.c_str());
 
     double roll, pitch, yaw;
     tf2::Quaternion q(tf.transform.rotation.x, tf.transform.rotation.y,
@@ -334,6 +348,11 @@ private:
   // updateLaser — called every scan, updates direction readings
   // ═══════════════════════════════════════════════════════════════════════════
   void updateLaser(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
+    if (msg->ranges.empty()) {
+      RCLCPP_ERROR_THROTTLE(get_logger(), *get_clock(), 2000,
+                            "[LASER FAIL] Empty scan ranges");
+      return;
+    }
     const auto &r = msg->ranges;
     float rmax = msg->range_max;
 
@@ -383,8 +402,29 @@ private:
   // Phase: TURNING → MOVING → CORRECTING → next goal
   // ═══════════════════════════════════════════════════════════════════════════
   void controlLoop() {
-    if (!initialized_ || !laser_init_)
+    // if (!initialized_ || !laser_init_)
+    //   return;
+    if (!scan_received_) {
+      RCLCPP_ERROR_THROTTLE(
+          get_logger(), *get_clock(), 2000,
+          "[LASER FAIL] No scan messages received on topic: %s",
+          laser_topic_.c_str());
       return;
+    }
+    if (this->count_publishers(laser_topic_) == 0) {
+      RCLCPP_ERROR_THROTTLE(get_logger(), *get_clock(), 2000,
+                            "[LASER FAIL] Topic %s has 0 publishers",
+                            laser_topic_.c_str());
+    }
+    if (!initialized_) {
+      RCLCPP_ERROR(get_logger(), " NOT INITIALIZED YET");
+      return;
+    }
+    if (!laser_init_) {
+      RCLCPP_ERROR_THROTTLE(get_logger(), *get_clock(), 2000,
+                            "[LASER INIT FAIL] Laser not initialized yet");
+      return;
+    }
 
     // All done
     if (goal_idx_ >= goals_.size()) {

@@ -19,18 +19,27 @@ maze_solver_node:
     # DkP: 0.77
     # DkI: 0.001
     # DkD: 0.25
-    DkP: 0.45
+    # DkP: 0.45
+    # DkI: 0.001
+    # DkD: 0.14
+    #-------------------------
+
+    DkP: 0.35
     DkI: 0.001
-    DkD: 0.14
+    DkD: 0.10
+    # DkP: 1.2
+    # DkI: 0.001
+    # DkD: 0.5
     # Turn Controller
-    # TkP: 0.8
-    # TkI: 0.005
-    # TkD: 0.5
-    TkP: 3.0
-    # TkI: 0.0001
+    TkP: 0.8
     TkI: 0.005
-    # TkD: 1.9
-    TkD: 1.4
+    TkD: 0.5
+    #-------------------------
+    # TkP: 3.0
+    # # TkI: 0.0001
+    # TkI: 0.005
+    # # TkD: 1.9
+    # TkD: 1.4
 
     max_ang_vel: 0.5      # >> .5 >> .2
     max_lin_vel: 0.4
