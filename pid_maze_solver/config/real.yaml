@@ -48,11 +48,11 @@ maze_solver_node:
     yaw_tolerance: 0.01         # rad
     goal_tolerance: 0.08        # >> 9
 
-    front_stop_thresh: 0.25   # <<
-    front_corr_thresh: 0.23
-    early_stop_dist: 0.06   # << .24  🌀
+    front_stop_thresh: 0.22 # 0.25   -----------------
+    front_corr_thresh: 0.21 # 0.23   -----------------
+    early_stop_dist: 0.06   # << .24 
 
-    wall_nudge_thresh: 0.18     # while MOVING    >> .23 🌀
+    wall_nudge_thresh: 0.18     # while MOVING    >> .23
     back_nudge_thresh: 0.25     # back arc avg distance to trigger forward push
     nudge_gain: 0.05  # <<
 

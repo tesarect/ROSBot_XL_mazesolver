@@ -277,6 +277,10 @@ private:
   // for any laser mounting (sim 180° flip or real robot)
   // ═══════════════════════════════════════════════════════════════════════════
   void initLaser(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
+    if (msg->ranges.empty()) {
+      RCLCPP_ERROR(get_logger(), "Laser messages EMPTY");
+      return;
+    }
     geometry_msgs::msg::TransformStamped tf;
     try {
       tf = tf_buffer_.lookupTransform(base_link_, msg->header.frame_id,
